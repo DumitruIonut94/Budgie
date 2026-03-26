@@ -551,11 +551,8 @@ function UpgradeScreen({token, currentPlan, onClose}) {
     setLoading(null);
   }
 
-  async function manageSubscription() {
-    setLoading("portal");
-    const res = await sb.callFunction("customer-portal", token, { returnUrl: window.location.origin });
-    if (res.url) window.location.href = res.url;
-    setLoading(null);
+  function manageSubscription() {
+    window.location.href = "https://billing.stripe.com/p/login/test_fZu14n7ht2aI76ycdWbsc00";
   }
 
   const plans = [
@@ -1324,9 +1321,8 @@ function HistoryTab({history,plan,onUpgrade,userName}) {
 // Account Tab
 // ─────────────────────────────────────────────────────────────────────────────
 function AccountTab({user,profile,token,onSignOut,onUpgrade}) {
-  async function handlePortal() {
-    const res = await sb.callFunction("customer-portal", token, { returnUrl: window.location.origin });
-    if (res.url) window.location.href = res.url;
+  function handlePortal() {
+    window.location.href = "https://billing.stripe.com/p/login/test_fZu14n7ht2aI76ycdWbsc00";
   }
 
   const planColor = profile?.plan==="family"?"#4ade9e":profile?.plan==="pro"?"#0fbcf9":"rgba(255,255,255,0.4)";
