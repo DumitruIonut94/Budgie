@@ -321,28 +321,52 @@ function AuthScreen({onAuth}) {
   const [success, setSuccess] = useState("");
 
   async function handleSubmit() {
+    if (!email || (!password && mode !== "forgot")) {
+      setError("Please fill in all fields.");
+      return;
+    }
     setError(""); setSuccess(""); setLoading(true);
     try {
       if (mode === "forgot") {
-        await sb.resetPassword(email);
-        setSuccess("Reset email sent! Check your inbox.");
+        const res = await sb.resetPassword(email);
+        setSuccess("If that email exists, a reset link has been sent.");
       } else if (mode === "register") {
         const res = await sb.signUp(email, password, name);
-        if (res.error) throw new Error(res.error.message);
-        // If email confirmation is disabled in Supabase, token comes back immediately
+        // Supabase returns error in res.error
+        if (res.error) {
+          setError(res.error.message || "Sign up failed. Please try again.");
+          setLoading(false);
+          return;
+        }
+        // Email confirmation disabled — we get access_token immediately
         if (res.access_token) {
           localStorage.setItem("sb_token", res.access_token);
+          setLoading(false);
           onAuth(res.access_token);
           return;
         }
-        setSuccess("Account created! Check your email to confirm your address.");
+        // Email confirmation enabled
+        setSuccess("Account created! Please check your email to confirm.");
       } else {
         const res = await sb.signIn(email, password);
-        if (res.error) throw new Error(res.error.message);
+        if (res.error) {
+          setError(res.error.message || "Invalid email or password.");
+          setLoading(false);
+          return;
+        }
+        if (!res.access_token) {
+          setError("Sign in failed. Please try again.");
+          setLoading(false);
+          return;
+        }
         localStorage.setItem("sb_token", res.access_token);
+        setLoading(false);
         onAuth(res.access_token);
+        return;
       }
-    } catch(e) { setError(e.message); }
+    } catch(e) {
+      setError(e.message || "Something went wrong. Please try again.");
+    }
     setLoading(false);
   }
 
@@ -563,7 +587,7 @@ function Onboarding({userName, onComplete}) {
   function handleNext() {
     if (!canProceed) return;
     if (step === 3) { finish(); return; }
-    setStep(step + 1);
+    setStep(function(s) { return s + 1; });
   }
 
   // Render current step content
@@ -1289,44 +1313,64 @@ function BudgetApp() {
   async function loadUserData(token) {
     setDataLoading(true);
     try {
+      // Step 1: get user
       const userData = await sb.getUser(token);
+      if (!userData || userData.error || !userData.id) {
+        console.error("getUser failed:", userData);
+        // Token invalid — clear and go back to login
+        localStorage.removeItem("sb_token");
+        setAuthToken(null);
+        setDataLoading(false);
+        return;
+      }
       setUser(userData);
 
-      // Load profile
-      const db = await sb.from("profiles", token);
-      const profiles = await db.select("*", `id=eq.${userData.id}`);
-      const prof = Array.isArray(profiles)?profiles[0]:null;
+      // Step 2: get profile (created automatically by DB trigger on signup)
+      let prof = null;
+      try {
+        const db = await sb.from("profiles", token);
+        const profiles = await db.select("*", `id=eq.${userData.id}`);
+        prof = Array.isArray(profiles) && profiles.length > 0 ? profiles[0] : null;
+      } catch(e) { console.error("profile load error:", e); }
       setProfile(prof);
 
-      // Load or create budget
-      const budgetDb = await sb.from("budgets", token);
-      const budgets = await budgetDb.select("*", `owner_id=eq.${userData.id}&order=created_at.asc`);
-      let bud = Array.isArray(budgets)&&budgets.length>0 ? budgets[0] : null;
+      // Step 3: get budget
+      let bud = null;
+      try {
+        const budgetDb = await sb.from("budgets", token);
+        const budgets = await budgetDb.select("*", `owner_id=eq.${userData.id}&order=created_at.asc`);
+        bud = Array.isArray(budgets) && budgets.length > 0 ? budgets[0] : null;
+      } catch(e) { console.error("budget load error:", e); }
 
-      if(!bud) {
-        // First time — will be created after onboarding
-        setBudget(null);
+      if (!bud) {
+        setBudget(null); // → shows Onboarding
       } else {
         setBudget(bud);
-        // Check payday reset
-        if(bud.payday) {
+        // Payday reset check
+        if (bud.payday) {
           const periodKey = getPeriodKey(bud.payday);
-          if(bud.current_period && bud.current_period !== periodKey) {
-            // Archive and reset
-            await archivePeriod(token, bud, bud.current_period);
-            const expDb = await sb.from("expenses", token);
-            await expDb.delete(`budget_id=eq.${bud.id}&type=eq.daily`);
-            await budgetDb.update({current_period:periodKey}, `id=eq.${bud.id}`);
-            setBudget({...bud, current_period:periodKey});
-            setShowPaydayReset(true);
+          if (bud.current_period && bud.current_period !== periodKey) {
+            try {
+              await archivePeriod(token, bud, bud.current_period);
+              const expDb = await sb.from("expenses", token);
+              await expDb.delete(`budget_id=eq.${bud.id}&type=eq.daily`);
+              const budgetDb2 = await sb.from("budgets", token);
+              await budgetDb2.update({current_period: periodKey}, `id=eq.${bud.id}`);
+              setBudget({...bud, current_period: periodKey});
+              setShowPaydayReset(true);
+            } catch(e) { console.error("payday reset error:", e); }
           }
         }
         // Load expenses
-        await loadExpenses(token, bud.id);
-        // Load history if Pro/Family
-        if(prof?.plan&&prof.plan!=="free") await loadHistory(token, bud.id);
+        try { await loadExpenses(token, bud.id); } catch(e) { console.error("expenses load error:", e); }
+        // Load history (Pro/Family)
+        if (prof?.plan && prof.plan !== "free") {
+          try { await loadHistory(token, bud.id); } catch(e) { console.error("history load error:", e); }
+        }
       }
-    } catch(e){ console.error("loadUserData error:",e); }
+    } catch(e) {
+      console.error("loadUserData critical error:", e);
+    }
     setDataLoading(false);
   }
 
