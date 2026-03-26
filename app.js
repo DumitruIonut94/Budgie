@@ -1005,7 +1005,7 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
 // ─────────────────────────────────────────────────────────────────────────────
 // Home Tab
 // ─────────────────────────────────────────────────────────────────────────────
-function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName}) {
+function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName,onOpenBudgetPicker,budgetsCount,budgetName}) {
   const [editingIncome,setEditingIncome]=useState(false);
   const [incomeInput,setIncomeInput]=useState("");
   const income=parseFloat(budget?.monthly_income)||0;
@@ -1014,11 +1014,15 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
   return React.createElement("div",null,
     React.createElement("div",{style:S.header},
       React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10},onClick:onOpenBudgetPicker,style:{display:"flex",alignItems:"center",gap:10,cursor:budgetsCount>1||(plan!=="free")?"pointer":"default"}},
           React.createElement(BudgieLogo,{size:44}),
           React.createElement("div",null,
             React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
-            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:3}},userName ? `${userName}'s Budget` : "Budget Tracker")
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
+              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:3}},
+                budgetName || (userName ? `${userName}'s Budget` : "Budget Tracker")),
+              (plan!=="free"||budgetsCount>1) && React.createElement("span",{style:{fontSize:10,color:"rgba(255,255,255,0.2)",marginTop:3}},"▼")
+            )
           )
         ),
         React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
@@ -1479,6 +1483,9 @@ function BudgetApp() {
   const [user, setUser]             = useState(null);
   const [profile, setProfile]       = useState(null);
   const [budget, setBudget]         = useState(null);
+  const [budgets, setBudgets]       = useState([]);   // all budgets for this user
+  const [showBudgetPicker, setShowBudgetPicker] = useState(false);
+  const [showNewBudget, setShowNewBudget] = useState(false);
   const [expenses, setExpenses]     = useState([]);
   const [history, setHistory]       = useState([]);
   const [tab, setTab]               = useState("home");
@@ -1619,12 +1626,15 @@ function BudgetApp() {
       console.log("final profile:", prof);
       setProfile(prof);
 
-      // Step 3: get budget
+      // Step 3: get all budgets
       let bud = null;
+      let allBudgets = [];
       try {
         const budgetDb = await sb.from("budgets", token);
-        const budgets = await budgetDb.select("*", `owner_id=eq.${userData.id}&order=created_at.asc`);
-        bud = Array.isArray(budgets) && budgets.length > 0 ? budgets[0] : null;
+        const budgetList = await budgetDb.select("*", `owner_id=eq.${userData.id}&order=created_at.asc`);
+        allBudgets = Array.isArray(budgetList) ? budgetList : [];
+        setBudgets(allBudgets);
+        bud = allBudgets.length > 0 ? allBudgets[0] : null;
       } catch(e) { console.error("budget load error:", e); }
 
       if (!bud) {
@@ -1747,6 +1757,50 @@ function BudgetApp() {
     const db = await sb.from("budgets", authToken);
     await db.update(patch, `id=eq.${budget.id}`);
     setBudget(b=>({...b,...patch}));
+    setBudgets(bs => bs.map(b => b.id === budget.id ? {...b,...patch} : b));
+  }
+
+  async function switchBudget(bud) {
+    setBudget(bud);
+    setExpenses([]);
+    setHistory([]);
+    setShowBudgetPicker(false);
+    try { await loadExpenses(authToken, bud.id); } catch(e) {}
+    if (plan !== "free") try { await loadHistory(authToken, bud.id); } catch(e) {}
+  }
+
+  async function createBudget(name) {
+    if (!name || !user) return;
+    try {
+      const db = await sb.from("budgets", authToken);
+      const result = await db.insert({
+        owner_id: user.id,
+        name,
+        monthly_income: 0,
+        income_currency: budget?.income_currency || "RON",
+        payday: budget?.payday || 1,
+        current_period: getPeriodKey(budget?.payday || 1),
+        settings: { onboardingDone: true },
+      });
+      const newBud = Array.isArray(result) ? result[0] : null;
+      if (newBud) {
+        setBudgets(bs => [...bs, newBud]);
+        await switchBudget(newBud);
+      }
+    } catch(e) { console.error("createBudget error:", e); }
+    setShowNewBudget(false);
+  }
+
+  async function deleteBudget(budId) {
+    if (budgets.length <= 1) { alert("You need at least one budget."); return; }
+    if (!confirm("Delete this budget? All expenses will be lost.")) return;
+    try {
+      const db = await sb.from("budgets", authToken);
+      await db.delete(`id=eq.${budId}`);
+      const remaining = budgets.filter(b => b.id !== budId);
+      setBudgets(remaining);
+      if (budget?.id === budId) await switchBudget(remaining[0]);
+    } catch(e) { console.error("deleteBudget error:", e); }
   }
 
   function openAdd(type) {
@@ -1807,6 +1861,55 @@ function BudgetApp() {
 
   const globalStyles=`*{margin:0;padding:0;box-sizing:border-box;}body{background:#0a0a0f;}input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input::placeholder{color:rgba(255,255,255,0.2);}select option{background:#13131f;}::-webkit-scrollbar{width:0;}`;
 
+  // Budget Picker Modal
+  function BudgetPicker() {
+    const [newName, setNewName] = useState("");
+    const canCreate = plan !== "free" || budgets.length === 0;
+    return React.createElement("div",{style:{...S.overlay,zIndex:300},onClick:e=>{if(e.target===e.currentTarget)setShowBudgetPicker(false);}},
+      React.createElement("div",{style:S.sheet},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}},
+          React.createElement("h3",{style:{fontWeight:800,fontSize:18}},"Your Budgets"),
+          React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:()=>setShowBudgetPicker(false)},
+            React.createElement(Icon,{d:IC.x,size:20}))
+        ),
+        // Budget list
+        budgets.map(b =>
+          React.createElement("div",{key:b.id,style:{...S.card,marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",
+            border:b.id===budget?.id?"1px solid rgba(74,222,158,0.4)":"1px solid rgba(255,255,255,0.07)"},
+            onClick:()=>switchBudget(b)},
+            React.createElement("div",{style:{width:36,height:36,borderRadius:10,background:b.id===budget?.id?"rgba(74,222,158,0.15)":"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center"}},
+              React.createElement(Icon,{d:IC.wallet,size:16,stroke:b.id===budget?.id?"#4ade9e":"rgba(255,255,255,0.4)"})),
+            React.createElement("div",{style:{flex:1}},
+              React.createElement("p",{style:{fontWeight:700,fontSize:14,color:b.id===budget?.id?"#4ade9e":"#f0f0f5"}},b.name),
+              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},
+                b.income_currency||"RON"," · ",b.payday?"Payday "+b.payday:"No payday set")
+            ),
+            b.id===budget?.id && React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}),
+            budgets.length > 1 && b.id !== budget?.id && React.createElement("button",{
+              onClick:e=>{e.stopPropagation();deleteBudget(b.id);},
+              style:{background:"none",border:"none",color:"rgba(255,255,255,0.2)",cursor:"pointer",padding:4}},
+              React.createElement(Icon,{d:IC.trash,size:14}))
+          )
+        ),
+        // New budget
+        canCreate ? React.createElement("div",{style:{marginTop:16}},
+          React.createElement("label",{style:S.label},"Create new budget"),
+          React.createElement("div",{style:{display:"flex",gap:8}},
+            React.createElement("input",{style:{...S.input,flex:1},placeholder:"e.g. Business, Vacation...",value:newName,
+              onChange:e=>setNewName(e.target.value),
+              onKeyDown:e=>{if(e.key==="Enter"&&newName)createBudget(newName);}}),
+            React.createElement("button",{style:S.btn("#4ade9e"),onClick:()=>createBudget(newName),disabled:!newName},
+              React.createElement(Icon,{d:IC.plus,size:16}))
+          )
+        ) : React.createElement("div",{style:{...S.card,marginTop:16,background:"rgba(74,222,158,0.05)",border:"1px solid rgba(74,222,158,0.15)",textAlign:"center",padding:16}},
+          React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.5)",marginBottom:8}},"Multiple budgets requires Pro or Family"),
+          React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f"},onClick:()=>{setShowBudgetPicker(false);setShowUpgrade(true);}},
+            "Upgrade to Pro")
+        )
+      )
+    );
+  }
+
   // ── Loading ────────────────────────────────────────────────────────────────
   if(authLoading) return React.createElement("div",{style:{minHeight:"100vh",background:"#0a0a0f",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16}},
     React.createElement("style",null,globalStyles),
@@ -1843,7 +1946,7 @@ function BudgetApp() {
   return React.createElement("div",{style:S.app},
     React.createElement("style",null,globalStyles),
 
-    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||""}),
+    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
@@ -1856,6 +1959,7 @@ function BudgetApp() {
     ),
 
     React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,rates,incomeCurrency}),
+    showBudgetPicker && React.createElement(BudgetPicker,null),
     React.createElement(RatesModal,{show:showRates,onClose:()=>setShowRates(false),rates,liveRates,ratesLoading,onSave:(cur,val)=>updateBudget({rates:{...(budget?.rates||{}),[cur]:val}}),onResetToLive:(cur)=>updateBudget({rates:{...(budget?.rates||{}),  [cur]:liveRates[cur]}})}),
     React.createElement(PaydayResetModal,{show:showPaydayReset,userName:profile?.name,income:budget?.monthly_income,currency:incomeCurrency,rates,
       onKeep:()=>setShowPaydayReset(false),
