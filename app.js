@@ -1350,17 +1350,29 @@ function FamilyMembers({budget, token, plan}) {
     if (!inviteEmail) return;
     setLoading(true); setMsg("");
     try {
+      // 1. Create invite record in DB
       const db = await sb.from("invites", token);
       const result = await db.insert({
         budget_id: budget.id,
         invited_by: budget.owner_id,
         email: inviteEmail,
       });
-      if (Array.isArray(result) && result[0]) {
-        setMsg(`Invitation sent to ${inviteEmail}!`);
+      const invite = Array.isArray(result) ? result[0] : null;
+      if (!invite) { setMsg("Error creating invite. Try again."); setLoading(false); return; }
+
+      // 2. Send email via Edge Function
+      const emailRes = await sb.callFunction("send-invite", token, {
+        inviteId: invite.id,
+        budgetName: budget.name || "Budgie Budget",
+        inviterName: budget.owner_name || "Your friend",
+        appUrl: window.location.origin,
+      });
+
+      if (emailRes.success) {
+        setMsg(`✓ Invitation sent to ${inviteEmail}!`);
         setInviteEmail("");
       } else {
-        setMsg("Error sending invite. Try again.");
+        setMsg("Invite created but email failed: " + (emailRes.error || "unknown error"));
       }
     } catch(e) { setMsg("Error: " + e.message); }
     setLoading(false);
@@ -1490,11 +1502,44 @@ function BudgetApp() {
       safeStorage.set("pending_invite", inviteToken);
       window.history.replaceState({}, "", window.location.pathname);
     }
-    // Check for upgrade success
     if (params.get("upgraded") === "1") {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+  // Accept pending invite after login
+  useEffect(()=>{
+    if (!authToken || !user) return;
+    const pendingInvite = safeStorage.get("pending_invite");
+    if (!pendingInvite) return;
+    safeStorage.remove("pending_invite");
+    acceptInvite(pendingInvite);
+  }, [authToken, user]);
+
+  async function acceptInvite(token_str) {
+    try {
+      // Find invite by token
+      const db = await sb.from("invites", authToken);
+      const invites = await db.select("*", `token=eq.${token_str}&status=eq.pending`);
+      const invite = Array.isArray(invites) ? invites[0] : null;
+      if (!invite) { console.log("Invite not found or expired"); return; }
+
+      // Check if already member
+      const memberDb = await sb.from("budget_members", authToken);
+      const existing = await memberDb.select("*", `budget_id=eq.${invite.budget_id}&user_id=eq.${user.id}`);
+      if (Array.isArray(existing) && existing.length > 0) { console.log("Already a member"); return; }
+
+      // Add to budget_members
+      await memberDb.insert({ budget_id: invite.budget_id, user_id: user.id, role: "member" });
+
+      // Mark invite accepted
+      await db.update({ status: "accepted" }, `id=eq.${invite.id}`);
+
+      // Reload data to show the shared budget
+      await loadUserData(authToken);
+      alert("✓ You joined the shared budget!");
+    } catch(e) { console.error("acceptInvite error:", e); }
+  }
 
   useEffect(()=>{
     async function checkAuth() {
