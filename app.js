@@ -1460,6 +1460,8 @@ function AccountTab({user,profile,token,budget,onSignOut,onUpgrade}) {
     React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
       profile?.plan==="free"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f"},onClick:onUpgrade},
         "⭐ Upgrade to Pro — €2.99/mo"),
+      profile?.plan==="pro"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f"},onClick:onUpgrade},
+        "👨‍👩‍👧 Switch to Family Plan"),
       profile?.plan!=="free"&&React.createElement("button",{style:{...S.ghost,width:"100%",textAlign:"left"},onClick:handlePortal},
         "Manage Subscription & Billing"),
       React.createElement("button",{style:{...S.ghost,width:"100%",textAlign:"left",color:"#e94560",borderColor:"rgba(233,69,96,0.2)"},onClick:onSignOut},
