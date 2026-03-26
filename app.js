@@ -694,7 +694,7 @@ function PaydayResetModal({show,userName,income,currency,rates,onKeep,onUpdate})
         React.createElement("div",{style:{marginBottom:14}},
           React.createElement("label",{style:S.label},"New income"),
           React.createElement("input",{style:{...S.input,fontSize:20,fontWeight:800,padding:"14px",textAlign:"center"},
-            type:"number",autoFocus,value:newIncome,onChange:e=>setNewIncome(e.target.value),placeholder:income})
+            type:"number",autoFocus:true,value:newIncome,onChange:e=>setNewIncome(e.target.value),placeholder:income})
         ),
         React.createElement("div",{style:{marginBottom:20}},
           React.createElement("label",{style:S.label},"Currency"),
