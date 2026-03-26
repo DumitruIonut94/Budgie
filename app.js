@@ -884,7 +884,7 @@ function RatesModal({show,onClose,rates,liveRates,ratesLoading,onSave,onResetToL
 // ─────────────────────────────────────────────────────────────────────────────
 // Expense Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scanResult,scanError,onScanFile,onConfirmScan,onCancelScan,onRetryScan,rates,incomeCurrency}) {
+function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scanResult,scanError,onScanFile,onConfirmScan,onCancelScan,onRetryScan,rates,incomeCurrency,budgets,activeBudgetId}) {
   const fileRef=useRef(), cameraRef=useRef();
   const type = modal;
   const needsRate = form.currency !== incomeCurrency;
@@ -957,6 +957,15 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
             e("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.07)"}})
           )
         ),
+        // Budget selector — only show if user has multiple budgets
+        budgets && budgets.length > 1 && !isEditing && e("div",{style:{marginBottom:14}},
+          e("label",{style:S.label},"Add to budget"),
+          e("select",{style:S.input,value:form.targetBudgetId||activeBudgetId,
+            onChange:ev=>setForm(f=>({...f,targetBudgetId:ev.target.value}))},
+            budgets.map(b=>e("option",{key:b.id,value:b.id},b.name))
+          )
+        ),
+
         e("div",{style:{marginBottom:14}},
           e("label",{style:S.label},"Name"),
           e("input",{style:S.input,value:form.name,onChange:ev=>setForm(f=>({...f,name:ev.target.value})),placeholder:"e.g. Netflix, Kaufland..."})
@@ -1805,7 +1814,7 @@ function BudgetApp() {
 
   function openAdd(type) {
     setEditingExpense(null);
-    setForm({name:"",amount:"",currency:incomeCurrency,category:"wants",subcat:"",customRate:""});
+    setForm({name:"",amount:"",currency:incomeCurrency,category:"wants",subcat:"",customRate:"",targetBudgetId:budget?.id});
     setScanState("idle"); setScanResult(null); setScanError(null);
     setModal(type);
   }
@@ -1828,7 +1837,8 @@ function BudgetApp() {
     if(!form.name||!form.amount||!budget) return;
     const fc=form.currency!=="RON"?form.currency:incomeCurrency;
     const cr=form.customRate?parseFloat(form.customRate)||null:null;
-    const entry={budget_id:budget.id,added_by:user.id,type,name:form.name,amount:parseFloat(form.amount),currency:form.currency||incomeCurrency,custom_rate_cur:fc,custom_rate:cr,category:form.category,subcat:form.subcat,expense_date:new Date().toISOString().split("T")[0]};
+    const targetBudId = form.targetBudgetId || budget.id;
+    const entry={budget_id:targetBudId,added_by:user.id,type,name:form.name,amount:parseFloat(form.amount),currency:form.currency||incomeCurrency,custom_rate_cur:fc,custom_rate:cr,category:form.category,subcat:form.subcat,expense_date:new Date().toISOString().split("T")[0]};
 
     if(editingExpense) {
       const db = await sb.from("expenses", authToken);
@@ -1838,7 +1848,10 @@ function BudgetApp() {
     } else {
       const db = await sb.from("expenses", authToken);
       const result = await db.insert(entry);
-      if(Array.isArray(result)&&result[0]) setExpenses(ex=>[result[0],...ex]);
+      // Only update local state if expense was added to current active budget
+      if(Array.isArray(result)&&result[0]&&targetBudId===budget.id) {
+        setExpenses(ex=>[result[0],...ex]);
+      }
     }
     setModal(null);
   }
@@ -1958,7 +1971,7 @@ function BudgetApp() {
       )
     ),
 
-    React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,rates,incomeCurrency}),
+    React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,rates,incomeCurrency,budgets,activeBudgetId:budget?.id}),
     showBudgetPicker && React.createElement(BudgetPicker,null),
     React.createElement(RatesModal,{show:showRates,onClose:()=>setShowRates(false),rates,liveRates,ratesLoading,onSave:(cur,val)=>updateBudget({rates:{...(budget?.rates||{}),[cur]:val}}),onResetToLive:(cur)=>updateBudget({rates:{...(budget?.rates||{}),  [cur]:liveRates[cur]}})}),
     React.createElement(PaydayResetModal,{show:showPaydayReset,userName:profile?.name,income:budget?.monthly_income,currency:incomeCurrency,rates,
