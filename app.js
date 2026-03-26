@@ -578,7 +578,8 @@ function UpgradeScreen({token, currentPlan, onClose}) {
       React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
         React.createElement("div",null,
           React.createElement("p",{style:{fontSize:22,fontWeight:900}},"Upgrade Budgie"),
-          React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginTop:4}},"Unlock the full experience")
+          React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginTop:4}},
+          currentPlan === "free" ? "Unlock the full experience" : "Change your plan")
         ),
         onClose && React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:onClose},
           React.createElement(Icon,{d:IC.x,size:22}))
@@ -637,7 +638,9 @@ function UpgradeScreen({token, currentPlan, onClose}) {
                 style:{...S.btn(plan.color,true),marginTop:16},
                 onClick:()=>checkout(plan.priceKey),
                 disabled:!!loading},
-                loading===plan.priceKey ? "Redirecting..." : `Upgrade to ${plan.name}`)
+                loading===plan.priceKey ? "Redirecting..." 
+                  : currentPlan !== "free" ? `Switch to ${plan.name}`
+                  : `Upgrade to ${plan.name}`)
         )
       ),
 
@@ -1320,7 +1323,98 @@ function HistoryTab({history,plan,onUpgrade,userName}) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Account Tab
 // ─────────────────────────────────────────────────────────────────────────────
-function AccountTab({user,profile,token,onSignOut,onUpgrade}) {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Family Members Manager
+// ─────────────────────────────────────────────────────────────────────────────
+function FamilyMembers({budget, token, plan}) {
+  const [members, setMembers]   = useState([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [msg, setMsg]           = useState("");
+
+  useEffect(()=>{
+    if (!budget?.id || !token) return;
+    loadMembers();
+  }, [budget?.id]);
+
+  async function loadMembers() {
+    try {
+      const db = await sb.from("budget_members", token);
+      const rows = await db.select("user_id,role", `budget_id=eq.${budget.id}`);
+      if (Array.isArray(rows)) setMembers(rows);
+    } catch(e) { console.error("loadMembers error:", e); }
+  }
+
+  async function sendInvite() {
+    if (!inviteEmail) return;
+    setLoading(true); setMsg("");
+    try {
+      const db = await sb.from("invites", token);
+      const result = await db.insert({
+        budget_id: budget.id,
+        invited_by: budget.owner_id,
+        email: inviteEmail,
+      });
+      if (Array.isArray(result) && result[0]) {
+        setMsg(`Invitation sent to ${inviteEmail}!`);
+        setInviteEmail("");
+      } else {
+        setMsg("Error sending invite. Try again.");
+      }
+    } catch(e) { setMsg("Error: " + e.message); }
+    setLoading(false);
+  }
+
+  async function removeMember(userId) {
+    try {
+      const db = await sb.from("budget_members", token);
+      await db.delete(`budget_id=eq.${budget.id}&user_id=eq.${userId}`);
+      setMembers(m => m.filter(x => x.user_id !== userId));
+    } catch(e) { console.error("removeMember error:", e); }
+  }
+
+  if (plan !== "family") return null;
+
+  return React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
+    React.createElement("p",{style:{fontWeight:700,fontSize:14,marginBottom:12,display:"flex",alignItems:"center",gap:8}},
+      React.createElement(Icon,{d:IC.users,size:16,stroke:"#4ade9e"}),
+      " Family Members (",members.length,"/5)"
+    ),
+
+    // Members list
+    members.length > 0 && React.createElement("div",{style:{marginBottom:14}},
+      members.map((m,i) =>
+        React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.06)"}},
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+            React.createElement("div",{style:{width:28,height:28,borderRadius:99,background:"linear-gradient(135deg,#4ade9e,#0fbcf9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#0a0a0f"}},"👤"),
+            React.createElement("span",{style:{fontSize:13,color:"rgba(255,255,255,0.7)"}},
+              m.role === "owner" ? "You (owner)" : `Member`)
+          ),
+          m.role !== "owner" && React.createElement("button",{
+            style:{background:"none",border:"none",color:"rgba(255,255,255,0.3)",cursor:"pointer",fontSize:11},
+            onClick:()=>removeMember(m.user_id)},"Remove")
+        )
+      )
+    ),
+
+    // Invite form
+    members.length < 5 && React.createElement("div",null,
+      React.createElement("label",{style:S.label},"Invite by email"),
+      React.createElement("div",{style:{display:"flex",gap:8}},
+        React.createElement("input",{style:{...S.input,flex:1,fontSize:13,padding:"10px 12px"},
+          type:"email",placeholder:"friend@example.com",value:inviteEmail,
+          onChange:e=>setInviteEmail(e.target.value),
+          onKeyDown:e=>{if(e.key==="Enter")sendInvite();}}),
+        React.createElement("button",{style:S.btn("#4ade9e"),onClick:sendInvite,disabled:loading},
+          loading?"...":"Invite")
+      ),
+      msg && React.createElement("p",{style:{fontSize:12,marginTop:8,color:msg.includes("Error")?"#e94560":"#4ade9e"}},msg)
+    )
+  );
+}
+
+function AccountTab({user,profile,token,budget,onSignOut,onUpgrade}) {
   function handlePortal() {
     window.location.href = "https://billing.stripe.com/p/login/test_fZu14n7ht2aI76ycdWbsc00";
   }
@@ -1346,6 +1440,9 @@ function AccountTab({user,profile,token,onSignOut,onUpgrade}) {
           "Renews ",new Date(profile.plan_expires_at).toLocaleDateString())
       )
     ),
+
+    // Family members section
+    profile?.plan==="family" && React.createElement(FamilyMembers,{budget,token,plan:profile?.plan}),
 
     // Actions
     React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
@@ -1385,6 +1482,20 @@ function BudgetApp() {
   const [dataLoading, setDataLoading] = useState(false);
 
   // ── Auth check on mount ──────────────────────────────────────────────────
+  // Check for invite token in URL
+  useEffect(()=>{
+    const params = new URLSearchParams(window.location.search);
+    const inviteToken = params.get("invite");
+    if (inviteToken) {
+      safeStorage.set("pending_invite", inviteToken);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    // Check for upgrade success
+    if (params.get("upgraded") === "1") {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   useEffect(()=>{
     async function checkAuth() {
       try {
@@ -1688,7 +1799,7 @@ function BudgetApp() {
     tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||""}),
-    tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
+    tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
 
     React.createElement("nav",{style:S.navBar},
       [{id:"home",label:"Overview",icon:IC.home},{id:"expenses",label:"Expenses",icon:IC.receipt},{id:"history",label:"History",icon:IC.history},{id:"account",label:"Account",icon:IC.users}].map(item=>
