@@ -544,12 +544,6 @@ function Onboarding({userName, onComplete}) {
   const [currency, setCurrency] = useState("RON");
   const [payday, setPayday]   = useState("");
 
-  // step: 0=welcome, 1=payday, 2=income, 3=done
-  const isWelcome = step === 0;
-  const isPayday  = step === 1;
-  const isIncome  = step === 2;
-  const isDone    = step === 3;
-
   function finish() {
     onComplete({
       monthly_income: parseFloat(income) || 0,
@@ -561,79 +555,86 @@ function Onboarding({userName, onComplete}) {
     });
   }
 
-  const canProceed = isWelcome ? true
-    : isPayday  ? (payday !== "" && parseInt(payday) >= 1 && parseInt(payday) <= 31)
-    : isIncome  ? (income !== "" && parseFloat(income) > 0)
+  const canProceed = step===0 ? true
+    : step===1 ? (payday !== "" && parseInt(payday) >= 1 && parseInt(payday) <= 31)
+    : step===2 ? (income !== "" && parseFloat(income) > 0)
     : true;
 
   function handleNext() {
     if (!canProceed) return;
-    if (isDone) { finish(); return; }
-    setStep(s => s + 1);
+    if (step === 3) { finish(); return; }
+    setStep(step + 1);
+  }
+
+  // Render current step content
+  function renderStep() {
+    if (step === 0) return React.createElement("div",{style:{textAlign:"center"}},
+      React.createElement(BudgieLogo,{size:80}),
+      React.createElement("h1",{style:{fontSize:28,fontWeight:900,marginTop:16,marginBottom:8,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",display:"inline-block",paddingRight:4}},"Welcome, ",userName,"!"),
+      React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",lineHeight:1.6}},"Let's set up your budget in a few quick steps.")
+    );
+
+    if (step === 1) return React.createElement("div",null,
+      React.createElement("p",{style:{fontSize:13,fontWeight:700,color:"#4ade9e",letterSpacing:"1px",textTransform:"uppercase",marginBottom:12}},"Step 1 of 2"),
+      React.createElement("h2",{style:{fontSize:24,fontWeight:900,marginBottom:8}},"When do you get paid?"),
+      React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:24,lineHeight:1.6}},"Your budget resets on this day each month — expenses clear automatically when your next salary arrives."),
+      React.createElement("input",{style:{...S.input,fontSize:24,fontWeight:800,padding:"16px",textAlign:"center"},
+        type:"number",min:"1",max:"31",value:payday,onChange:e=>setPayday(e.target.value),
+        placeholder:"e.g. 5",onKeyDown:e=>{if(e.key==="Enter")handleNext();}}),
+      payday ? React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginTop:10,textAlign:"center"}},
+        "Budget resets on the ",React.createElement("strong",{style:{color:"#4ade9e"}},payday,["st","nd","rd"][parseInt(payday)-1]||"th")," of each month"
+      ) : null
+    );
+
+    if (step === 2) return React.createElement("div",null,
+      React.createElement("p",{style:{fontSize:13,fontWeight:700,color:"#4ade9e",letterSpacing:"1px",textTransform:"uppercase",marginBottom:12}},"Step 2 of 2"),
+      React.createElement("h2",{style:{fontSize:24,fontWeight:900,marginBottom:8}},"What's your monthly income?"),
+      React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:20,lineHeight:1.6}},"We'll split it using the 50-30-20 rule."),
+      React.createElement("div",{style:{marginBottom:14}},
+        React.createElement("label",{style:S.label},"Currency"),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          CURRENCIES.map(c=>React.createElement(CurPill,{key:c,label:c,active:currency===c,color:CUR_COLOR[c],onClick:()=>setCurrency(c)}))
+        )
+      ),
+      React.createElement("input",{style:{...S.input,fontSize:24,fontWeight:800,padding:"16px",textAlign:"center"},
+        type:"number",value:income,onChange:e=>setIncome(e.target.value),placeholder:"0",
+        onKeyDown:e=>{if(e.key==="Enter")handleNext();}}),
+      (income && parseFloat(income)>0) ? React.createElement("div",{style:{marginTop:14,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}},
+        [["Needs","50%",parseFloat(income)*0.5,"#e94560"],["Wants","30%",parseFloat(income)*0.3,"#f5a623"],["Savings","20%",parseFloat(income)*0.2,"#0fbcf9"]].map(([l,p,v,c])=>
+          React.createElement("div",{key:l,style:{background:`rgba(${rgb(c)},0.08)`,borderRadius:12,padding:"10px 8px",textAlign:"center",border:`1px solid rgba(${rgb(c)},0.2)`}},
+            React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.4)",fontWeight:700,textTransform:"uppercase"}},l),
+            React.createElement("p",{style:{fontSize:15,fontWeight:800,color:c,marginTop:2}},p),
+            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:1}},fmt(v,currency))
+          )
+        )
+      ) : null
+    );
+
+    if (step === 3) return React.createElement("div",{style:{textAlign:"center"}},
+      React.createElement("div",{style:{fontSize:64,marginBottom:16}},"🎉"),
+      React.createElement("h2",{style:{fontSize:26,fontWeight:900,marginBottom:8}},"You're all set!"),
+      React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",lineHeight:1.6}},
+        "Your budget resets on the ",
+        React.createElement("strong",{style:{color:"#4ade9e"}},payday,["st","nd","rd"][parseInt(payday)-1]||"th"),
+        " of each month.")
+    );
+
+    return null;
   }
 
   return React.createElement("div",{style:{minHeight:"100vh",background:"#0a0a0f",display:"flex",flexDirection:"column",maxWidth:420,margin:"0 auto",padding:"0 24px"}},
-
     // Progress dots
     React.createElement("div",{style:{display:"flex",gap:6,justifyContent:"center",paddingTop:56,marginBottom:40}},
       [0,1,2,3].map(i=>React.createElement("div",{key:i,style:{width:i===step?20:7,height:7,borderRadius:99,background:i<=step?"#4ade9e":"rgba(255,255,255,0.1)",transition:"all 0.3s"}}))
     ),
-
     React.createElement("div",{style:{flex:1,display:"flex",flexDirection:"column",justifyContent:"center"}},
-
-      isWelcome && React.createElement("div",{style:{textAlign:"center"}},
-        React.createElement(BudgieLogo,{size:80}),
-        React.createElement("h1",{style:{fontSize:28,fontWeight:900,marginTop:16,marginBottom:8,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",display:"inline-block",paddingRight:4}},"Welcome, ",userName,"!"),
-        React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",lineHeight:1.6}},"Let's set up your budget in a few quick steps.")
-      ),
-
-      isPayday && React.createElement("div",null,
-        React.createElement("p",{style:{fontSize:13,fontWeight:700,color:"#4ade9e",letterSpacing:"1px",textTransform:"uppercase",marginBottom:12}},"Step 1 of 2"),
-        React.createElement("h2",{style:{fontSize:24,fontWeight:900,marginBottom:8}},"When do you get paid?"),
-        React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:24,lineHeight:1.6}},"Your budget resets on this day each month — expenses clear automatically when your next salary arrives."),
-        React.createElement("input",{style:{...S.input,fontSize:24,fontWeight:800,padding:"16px",textAlign:"center"},
-          type:"number",min:"1",max:"31",value:payday,onChange:e=>setPayday(e.target.value),
-          placeholder:"e.g. 5",onKeyDown:e=>{if(e.key==="Enter")handleNext();}}),
-        payday && React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginTop:10,textAlign:"center"}},
-          "Budget resets on the ",React.createElement("strong",{style:{color:"#4ade9e"}},payday,["st","nd","rd"][parseInt(payday)-1]||"th")," of each month")
-      ),
-
-      isIncome && React.createElement("div",null,
-        React.createElement("p",{style:{fontSize:13,fontWeight:700,color:"#4ade9e",letterSpacing:"1px",textTransform:"uppercase",marginBottom:12}},"Step 2 of 2"),
-        React.createElement("h2",{style:{fontSize:24,fontWeight:900,marginBottom:8}},"What's your monthly income?"),
-        React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:20,lineHeight:1.6}},"We'll split it using the 50-30-20 rule."),
-        React.createElement("div",{style:{marginBottom:14}},
-          React.createElement("label",{style:S.label},"Currency"),
-          React.createElement("div",{style:{display:"flex",gap:8}},
-            CURRENCIES.map(c=>React.createElement(CurPill,{key:c,label:c,active:currency===c,color:CUR_COLOR[c],onClick:()=>setCurrency(c)}))
-          )
-        ),
-        React.createElement("input",{style:{...S.input,fontSize:24,fontWeight:800,padding:"16px",textAlign:"center"},
-          type:"number",value:income,onChange:e=>setIncome(e.target.value),placeholder:"0",
-          onKeyDown:e=>{if(e.key==="Enter")handleNext();}}),
-        income && parseFloat(income)>0 && React.createElement("div",{style:{marginTop:14,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}},
-          [["Needs","50%",parseFloat(income)*0.5,"#e94560"],["Wants","30%",parseFloat(income)*0.3,"#f5a623"],["Savings","20%",parseFloat(income)*0.2,"#0fbcf9"]].map(([l,p,v,c])=>
-            React.createElement("div",{key:l,style:{background:`rgba(${rgb(c)},0.08)`,borderRadius:12,padding:"10px 8px",textAlign:"center",border:`1px solid rgba(${rgb(c)},0.2)`}},
-              React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.4)",fontWeight:700,textTransform:"uppercase"}},l),
-              React.createElement("p",{style:{fontSize:15,fontWeight:800,color:c,marginTop:2}},p),
-              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:1}},fmt(v,currency))
-            )
-          )
-        )
-      ),
-
-      isDone && React.createElement("div",{style:{textAlign:"center"}},
-        React.createElement("div",{style:{fontSize:64,marginBottom:16}},"🎉"),
-        React.createElement("h2",{style:{fontSize:26,fontWeight:900,marginBottom:8}},"You're all set!"),
-        React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",lineHeight:1.6}},"Your budget resets on the ",React.createElement("strong",{style:{color:"#4ade9e"}},payday,["st","nd","rd"][parseInt(payday)-1]||"th")," of each month.")
-      )
+      renderStep()
     ),
-
     React.createElement("div",{style:{paddingBottom:40,paddingTop:24}},
       React.createElement("button",{
         style:{...S.btn("#4ade9e",true),color:"#0a0a0f",opacity:canProceed?1:0.4,fontSize:16},
         onClick:handleNext},
-        isWelcome?"Get Started →":isDone?"Open Budgie →":"Continue →"
+        step===0?"Get Started →":step===3?"Open Budgie →":"Continue →"
       )
     )
   );
@@ -888,7 +889,7 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
 // ─────────────────────────────────────────────────────────────────────────────
 // Home Tab
 // ─────────────────────────────────────────────────────────────────────────────
-function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade}) {
+function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName}) {
   const [editingIncome,setEditingIncome]=useState(false);
   const [incomeInput,setIncomeInput]=useState("");
   const income=parseFloat(budget?.monthly_income)||0;
@@ -897,7 +898,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
   return React.createElement("div",null,
     React.createElement("div",{style:S.header},
       React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
-        React.createElement("p",{style:{fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.35)",letterSpacing:"1px",textTransform:"uppercase"}},"Monthly Budget"),
+        React.createElement("p",{style:{fontSize:12,fontWeight:600,color:"rgba(255,255,255,0.35)",letterSpacing:"1px",textTransform:"uppercase"}},userName ? `${userName}'s Budget` : "Monthly Budget"),
         React.createElement("div",{style:{display:"flex",gap:8,alignItems:"center"}},
           plan!=="free"&&React.createElement("span",{style:{fontSize:10,padding:"3px 8px",borderRadius:99,background:"rgba(74,222,158,0.15)",color:"#4ade9e",fontWeight:700}},plan.toUpperCase()),
           React.createElement("button",{style:{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:600},onClick:onOpenRates},
@@ -1028,7 +1029,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenses Tab
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpenEdit,budget}) {
+function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpenEdit,budget,userName}) {
   const [activeType,setActiveType]=useState("recurring");
   const monthLabel=new Date().toLocaleString("en-US",{month:"long",year:"numeric"});
   const list=expenses.filter(e=>e.type===activeType);
@@ -1077,7 +1078,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
           React.createElement(BudgieLogo,{size:44}),
           React.createElement("div",null,
             React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
-            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},"Expenses")
+            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},userName ? `${userName}'s Expenses` : "Expenses")
           )
         ),
         React.createElement("button",{style:S.btn("#e94560"),onClick:()=>onOpenAdd(activeType)},
@@ -1109,7 +1110,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
 // ─────────────────────────────────────────────────────────────────────────────
 // History Tab (Pro/Family only)
 // ─────────────────────────────────────────────────────────────────────────────
-function HistoryTab({history,plan,onUpgrade}) {
+function HistoryTab({history,plan,onUpgrade,userName}) {
   function periodLabel(p) {
     if(!p)return"";
     const [y,m]=p.split("-");
@@ -1131,7 +1132,7 @@ function HistoryTab({history,plan,onUpgrade}) {
         React.createElement(BudgieLogo,{size:44}),
         React.createElement("div",null,
           React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
-          React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},"History")
+          React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},userName ? `${userName}'s History` : "History")
         )
       )
     ),
@@ -1513,9 +1514,9 @@ function BudgetApp() {
   return React.createElement("div",{style:S.app},
     React.createElement("style",null,globalStyles),
 
-    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true)}),
-    tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget}),
-    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true)}),
+    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||""}),
+    tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
+    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
 
     React.createElement("nav",{style:S.navBar},
