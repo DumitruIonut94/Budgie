@@ -901,7 +901,161 @@ function RatesModal({show,onClose,rates,liveRates,ratesLoading,onSave,onResetToL
 // ─────────────────────────────────────────────────────────────────────────────
 // Expense Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scanResult,scanError,onScanFile,onConfirmScan,onCancelScan,onRetryScan,rates,incomeCurrency,budgets,activeBudgetId,aiCredits,onBuyCredits}) {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LineItemsSelector — editable checklist for detailed scan results
+// ─────────────────────────────────────────────────────────────────────────────
+function LineItemsSelector({scanResult, form, fmt, classify, onConfirmItems, onCancelScan}) {
+  const [items, setItems] = useState(() =>
+    (scanResult.items || []).map((item, i) => ({
+      ...item,
+      id: i,
+      selected: true,
+      type: "daily",  // default: variable
+      editName: item.name || "",
+      editAmount: (item.total || item.unit_price || 0).toString(),
+      editCategory: classify(item.category || item.name || ""),
+      editSubcat: item.category || "",
+      editing: false,
+    }))
+  );
+
+  function toggleItem(id) {
+    setItems(its => its.map(it => it.id===id ? {...it, selected:!it.selected} : it));
+  }
+
+  function toggleEdit(id) {
+    setItems(its => its.map(it => it.id===id ? {...it, editing:!it.editing} : it));
+  }
+
+  function updateItem(id, field, val) {
+    setItems(its => its.map(it => it.id===id ? {...it, [field]:val} : it));
+  }
+
+  const selectedCount = items.filter(i => i.selected).length;
+  const selectedTotal = items.filter(i => i.selected).reduce((sum, i) => sum + (parseFloat(i.editAmount)||0), 0);
+
+  return React.createElement("div",null,
+    // Header
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+      React.createElement("div",null,
+        React.createElement("p",{style:{fontWeight:800,fontSize:16}},scanResult.name||"Receipt"),
+        React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)"}},
+          scanResult.date||"", scanResult.date?" · ":"",
+          `${items.length} items found`)
+      ),
+      React.createElement("p",{style:{fontSize:18,fontWeight:900,color:"#0fbcf9"}},
+        fmt(scanResult.total||0, form.currency))
+    ),
+
+    // Select all / none
+    React.createElement("div",{style:{display:"flex",gap:8,marginBottom:10}},
+      React.createElement("button",{style:{...S.ghost,fontSize:12,padding:"6px 12px"},
+        onClick:()=>setItems(its=>its.map(it=>({...it,selected:true})))},"Select all"),
+      React.createElement("button",{style:{...S.ghost,fontSize:12,padding:"6px 12px"},
+        onClick:()=>setItems(its=>its.map(it=>({...it,selected:false})))},"Clear all")
+    ),
+
+    // Items list
+    React.createElement("div",{style:{maxHeight:340,overflowY:"auto",marginBottom:12}},
+      items.map(item =>
+        React.createElement("div",{key:item.id,style:{
+          ...S.card, marginBottom:8, padding:"10px 12px",
+          border: item.selected ? "1px solid rgba(15,188,249,0.3)" : "1px solid rgba(255,255,255,0.06)",
+          opacity: item.selected ? 1 : 0.5,
+        }},
+          // Row: checkbox + name + amount + edit button
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+            // Checkbox
+            React.createElement("button",{
+              style:{width:22,height:22,borderRadius:6,border:`2px solid ${item.selected?"#0fbcf9":"rgba(255,255,255,0.2)"}`,
+                background:item.selected?"#0fbcf9":"transparent",flexShrink:0,cursor:"pointer",
+                display:"flex",alignItems:"center",justifyContent:"center"},
+              onClick:()=>toggleItem(item.id)},
+              item.selected && React.createElement(Icon,{d:IC.check,size:12,stroke:"#fff"})
+            ),
+            // Name & details
+            React.createElement("div",{style:{flex:1,minWidth:0},onClick:()=>toggleItem(item.id),style:{flex:1,minWidth:0,cursor:"pointer"}},
+              React.createElement("p",{style:{fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},
+                item.editName),
+              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)"}},
+                item.qty&&item.qty>1?`${item.qty}x · `:"", item.editSubcat||item.editCategory)
+            ),
+            // Amount
+            React.createElement("p",{style:{fontWeight:800,fontSize:14,color:"#0fbcf9",flexShrink:0}},
+              fmt(parseFloat(item.editAmount)||0, form.currency)),
+            // Type toggle
+            React.createElement("button",{
+              style:{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:99,border:"none",cursor:"pointer",
+                background:item.type==="recurring"?"rgba(233,69,96,0.15)":"rgba(245,166,35,0.15)",
+                color:item.type==="recurring"?"#e94560":"#f5a623"},
+              onClick:()=>updateItem(item.id,"type",item.type==="recurring"?"daily":"recurring")},
+              item.type==="recurring"?"Fixed":"Var."
+            ),
+            // Edit toggle
+            React.createElement("button",{
+              style:{background:"none",border:"none",color:"rgba(255,255,255,0.3)",cursor:"pointer",padding:4},
+              onClick:()=>toggleEdit(item.id)},
+              React.createElement(Icon,{d:IC.edit,size:14}))
+          ),
+
+          // Inline edit form
+          item.editing && React.createElement("div",{style:{marginTop:10,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.07)"}},
+            React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:8}},
+              React.createElement("div",null,
+                React.createElement("label",{style:S.label},"Name"),
+                React.createElement("input",{style:{...S.input,fontSize:13},value:item.editName,
+                  onChange:e=>updateItem(item.id,"editName",e.target.value)})
+              ),
+              React.createElement("div",{style:{display:"flex",gap:8}},
+                React.createElement("div",{style:{flex:1}},
+                  React.createElement("label",{style:S.label},"Amount (",form.currency,")"),
+                  React.createElement("input",{style:{...S.input,fontSize:13},type:"number",value:item.editAmount,
+                    onChange:e=>updateItem(item.id,"editAmount",e.target.value)})
+                ),
+                React.createElement("div",{style:{flex:1}},
+                  React.createElement("label",{style:S.label},"Category"),
+                  React.createElement("select",{style:{...S.input,fontSize:13},value:item.editCategory,
+                    onChange:e=>updateItem(item.id,"editCategory",e.target.value)},
+                    ["needs","wants","savings"].map(c=>
+                      React.createElement("option",{key:c,value:c},c.charAt(0).toUpperCase()+c.slice(1))
+                    )
+                  )
+                )
+              ),
+              React.createElement("button",{style:{...S.ghost,fontSize:12,padding:"6px"},
+                onClick:()=>toggleEdit(item.id)},"Done editing")
+            )
+          )
+        )
+      )
+    ),
+
+    // Summary + Add button
+    React.createElement("div",{style:{...S.card,marginBottom:12,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
+      React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.5)"}},
+        `${selectedCount} item${selectedCount!==1?"s":""} selected`),
+      React.createElement("p",{style:{fontWeight:800,color:"#0fbcf9"}},
+        fmt(selectedTotal, form.currency))
+    ),
+
+    React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)",marginBottom:8,textAlign:"center"}},
+      "Tap ",React.createElement("span",{style:{color:"#e94560",fontWeight:700}},"Fixed"),
+      " / ",React.createElement("span",{style:{color:"#f5a623",fontWeight:700}},"Var."),
+      " on each item to set type individually"),
+    React.createElement("div",{style:{display:"flex",gap:8}},
+      React.createElement("button",{
+        style:{...S.btn("#4ade9e",true),flex:1,color:"#0a0a0f",opacity:selectedCount>0?1:0.4},
+        disabled:selectedCount===0,
+        onClick:()=>onConfirmItems(items.filter(i=>i.selected))},
+        `Add ${selectedCount} selected`),
+      React.createElement("button",{style:{...S.ghost,padding:"14px"},onClick:onCancelScan},
+        React.createElement(Icon,{d:IC.x,size:16}))
+    )
+  );
+}
+
+function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scanResult,scanError,onScanFile,onConfirmScan,onCancelScan,onRetryScan,onConfirmItems,rates,incomeCurrency,budgets,activeBudgetId,aiCredits,onBuyCredits}) {
   const fileRef=useRef(), cameraRef=useRef();
   const [scanMode, setScanMode] = useState("simple");
   const type = modal;
@@ -951,39 +1105,10 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           )
         ),
 
-        // Detailed mode — line items
-        scanResult.mode==="detailed"&&e(React.Fragment,null,
-          e("div",{style:{...S.card,marginBottom:12,padding:"10px 14px",background:"rgba(15,188,249,0.04)",border:"1px solid rgba(15,188,249,0.15)"}},
-            e("div",{style:{display:"flex",justifyContent:"space-between"}},
-              e("span",{style:{fontSize:13,fontWeight:700}},scanResult.name||"Receipt"),
-              e("span",{style:{fontSize:13,fontWeight:800,color:"#0fbcf9"}},fmt(scanResult.total||0,form.currency))
-            ),
-            scanResult.date&&e("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2}},scanResult.date)
-          ),
-          e("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:8}},
-            (scanResult.items||[]).length," line items found — tap to add each:"),
-          e("div",{style:{maxHeight:300,overflowY:"auto",marginBottom:14}},
-            (scanResult.items||[]).map((item,i)=>
-              e("div",{key:i,style:{...S.card,marginBottom:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"},
-                onClick:()=>{
-                  setForm(f=>({...f,name:item.name,amount:(item.total||item.unit_price||0).toString(),currency:form.currency,category:classify(item.category||item.name),subcat:item.category||""}));
-                  onCancelScan();
-                }},
-                e("div",null,
-                  e("p",{style:{fontWeight:600,fontSize:13}},item.name),
-                  e("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)"}},
-                    item.qty&&item.qty>1?`${item.qty}x ${fmt(item.unit_price||0,form.currency)} · `:"",
-                    item.category||"")
-                ),
-                e("div",{style:{textAlign:"right"}},
-                  e("p",{style:{fontWeight:800,color:"#0fbcf9"}},fmt(item.total||item.unit_price||0,form.currency)),
-                  e("p",{style:{fontSize:10,color:"rgba(255,255,255,0.3)"}},"tap to add")
-                )
-              )
-            )
-          ),
-          e("button",{style:{...S.ghost,width:"100%"},onClick:onCancelScan},"Cancel")
-        )
+        // Detailed mode — line items with checkboxes and inline edit
+        scanResult.mode==="detailed"&&e(LineItemsSelector,{
+          scanResult, form, fmt, classify, onConfirmItems, onCancelScan
+        })
       ) : scanState==="scanning" ? e("div",{style:{textAlign:"center",padding:"40px 0"}},
         e("div",{style:{fontSize:48,marginBottom:16,display:"inline-block",animation:"spin 1s linear infinite"}},"🔍"),
         e("p",{style:{fontWeight:700,fontSize:17}},"Scanning receipt..."),
@@ -1018,7 +1143,7 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           ),
           e("div",{style:{display:"flex",gap:8,marginBottom:18,opacity:aiCredits>0?1:0.4,pointerEvents:aiCredits>0?"auto":"none"}},
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(15,188,249,0.3)",background:"rgba(15,188,249,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>fileRef.current?.click()},
-              e(Icon,{d:IC.receipt,size:15,stroke:"#0fbcf9"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#0fbcf9"}},"Upload Receipt/Invoice")),
+              e(Icon,{d:IC.receipt,size:15,stroke:"#0fbcf9"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#0fbcf9"}},"Upload Receipt / PDF")),
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(245,166,35,0.3)",background:"rgba(245,166,35,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>cameraRef.current?.click()},
               e(Icon,{d:IC.camera,size:15,stroke:"#f5a623"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#f5a623"}},"Camera"))
           ),
@@ -1997,6 +2122,33 @@ function BudgetApp() {
   function cancelScan(){setScanState("idle");setScanResult(null);}
   function retryScan(){setScanState("idle");setScanError(null);}
 
+  async function confirmItems(selectedItems) {
+    if (!selectedItems.length || !budget) return;
+    for (const item of selectedItems) {
+      const entry = {
+        budget_id: form.targetBudgetId || budget.id,
+        added_by: user.id,
+        type: item.type || "daily",  // each item has its own type
+        name: item.editName || item.name,
+        amount: parseFloat(item.editAmount) || 0,
+        currency: form.currency || incomeCurrency,
+        category: item.editCategory || classify(item.name),
+        subcat: item.editSubcat || item.category || "",
+        expense_date: scanResult?.date || new Date().toISOString().split("T")[0],
+      };
+      try {
+        const db = await sb.from("expenses", authToken);
+        const result = await db.insert(entry);
+        if (Array.isArray(result) && result[0] && entry.budget_id === budget.id) {
+          setExpenses(ex => [result[0], ...ex]);
+        }
+      } catch(e) { console.error("confirmItems insert error:", e); }
+    }
+    setScanState("idle");
+    setScanResult(null);
+    setModal(null);
+  }
+
   const globalStyles=`*{margin:0;padding:0;box-sizing:border-box;}body{background:#0a0a0f;}input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input::placeholder{color:rgba(255,255,255,0.2);}select option{background:#13131f;}::-webkit-scrollbar{width:0;}`;
 
   // Budget Picker Modal
@@ -2096,7 +2248,7 @@ function BudgetApp() {
       )
     ),
 
-    React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,rates,incomeCurrency,budgets,activeBudgetId:budget?.id,aiCredits,onBuyCredits:()=>setTab("account")}),
+    React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,onConfirmItems:confirmItems,rates,incomeCurrency,budgets,activeBudgetId:budget?.id,aiCredits,onBuyCredits:()=>setTab("account")}),
     showBudgetPicker && React.createElement(BudgetPicker,null),
     React.createElement(RatesModal,{show:showRates,onClose:()=>setShowRates(false),rates,liveRates,ratesLoading,onSave:(cur,val)=>updateBudget({rates:{...(budget?.rates||{}),[cur]:val}}),onResetToLive:(cur)=>updateBudget({rates:{...(budget?.rates||{}),  [cur]:liveRates[cur]}})}),
     React.createElement(PaydayResetModal,{show:showPaydayReset,userName:profile?.name,income:budget?.monthly_income,currency:incomeCurrency,rates,
