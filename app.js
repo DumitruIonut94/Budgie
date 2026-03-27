@@ -290,6 +290,46 @@ async function toJpeg(file) {
   });
 }
 
+// PDF to base64 image — renders first page using pdf.js
+async function pdfToJpeg(file) {
+  // Load pdf.js from CDN if not already loaded
+  if (!window.pdfjsLib) {
+    await new Promise((res, rej) => {
+      const script = document.createElement("script");
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      script.onload = res;
+      script.onerror = rej;
+      document.head.appendChild(script);
+    });
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const page = await pdf.getPage(1); // first page only
+
+  const scale = 2.0; // higher = better quality
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement("canvas");
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  return canvas.toDataURL("image/jpeg", 0.92).split(",")[1];
+}
+
+// Convert any file (image or PDF) to base64 jpeg
+async function fileToBase64(file) {
+  if (file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf")) {
+    return pdfToJpeg(file);
+  }
+  return toJpeg(file);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Static styles
 // ─────────────────────────────────────────────────────────────────────────────
@@ -978,11 +1018,11 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           ),
           e("div",{style:{display:"flex",gap:8,marginBottom:18,opacity:aiCredits>0?1:0.4,pointerEvents:aiCredits>0?"auto":"none"}},
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(15,188,249,0.3)",background:"rgba(15,188,249,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>fileRef.current?.click()},
-              e(Icon,{d:IC.receipt,size:15,stroke:"#0fbcf9"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#0fbcf9"}},"Upload Receipt")),
+              e(Icon,{d:IC.receipt,size:15,stroke:"#0fbcf9"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#0fbcf9"}},"Upload Receipt / PDF")),
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(245,166,35,0.3)",background:"rgba(245,166,35,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>cameraRef.current?.click()},
               e(Icon,{d:IC.camera,size:15,stroke:"#f5a623"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#f5a623"}},"Camera"))
           ),
-          e("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
+          e("input",{ref:fileRef,type:"file",accept:"image/*,application/pdf",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
           e("input",{ref:cameraRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
           e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:18}},
             e("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.07)"}}),
@@ -1934,7 +1974,7 @@ function BudgetApp() {
     }
     setScanState("scanning"); setScanError(null);
     try {
-      const b64 = await toJpeg(file);
+      const b64 = await fileToBase64(file);
       const res = await sb.callFunction("scan-receipt", authToken, { imageBase64: b64, mode });
       if (res.error === "no_credits") {
         setShowBuyCredits(true);
