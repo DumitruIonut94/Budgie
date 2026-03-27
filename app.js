@@ -273,7 +273,7 @@ function getPeriodKey(payday) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
 }
 
-// AI receipt scanner
+// Image to base64 helper
 async function toJpeg(file) {
   const url = URL.createObjectURL(file);
   return new Promise((res, rej) => {
@@ -288,29 +288,6 @@ async function toJpeg(file) {
     img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("load failed")); };
     img.src = url;
   });
-}
-async function scanReceipt(file) {
-  const b64 = await toJpeg(file);
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST",
-    headers:{"Content-Type":"application/json","anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-    body: JSON.stringify({
-      model:"claude-sonnet-4-20250514", max_tokens:800,
-      messages:[{role:"user",content:[
-        {type:"image",source:{type:"base64",media_type:"image/jpeg",data:b64}},
-        {type:"text",text:`Receipt (possibly Romanian: RON/lei, bon fiscal, TVA, total de plata).
-Return ONLY JSON: {"name":"merchant","amount":42.50,"currency":"RON","category":"Groceries","date":"YYYY-MM-DD","items":["item"]}
-- amount = total paid; currency = RON/EUR/USD; if unreadable: {"error":"unreadable"}`}
-      ]}]
-    })
-  });
-  const raw = await resp.text();
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  const d = JSON.parse(raw);
-  if (d.error) throw new Error(`${d.error.type}: ${d.error.message}`);
-  const txt = d.content?.[0]?.text || "";
-  try { return JSON.parse(txt.replace(/```json|```/g,"").trim()); }
-  catch { const m = txt.match(/\{[\s\S]*\}/); if (m) return JSON.parse(m[0]); return {error:txt.slice(0,100)}; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -884,8 +861,9 @@ function RatesModal({show,onClose,rates,liveRates,ratesLoading,onSave,onResetToL
 // ─────────────────────────────────────────────────────────────────────────────
 // Expense Modal
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scanResult,scanError,onScanFile,onConfirmScan,onCancelScan,onRetryScan,rates,incomeCurrency,budgets,activeBudgetId}) {
+function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scanResult,scanError,onScanFile,onConfirmScan,onCancelScan,onRetryScan,rates,incomeCurrency,budgets,activeBudgetId,aiCredits,onBuyCredits}) {
   const fileRef=useRef(), cameraRef=useRef();
+  const [scanMode, setScanMode] = useState("simple");
   const type = modal;
   const needsRate = form.currency !== incomeCurrency;
   const rateFrom = incomeCurrency==="EUR" ? form.currency : incomeCurrency;
@@ -907,26 +885,64 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
 
       scanState==="result"&&scanResult ? e(React.Fragment,null,
         e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}},
-          e("h3",{style:{fontWeight:800,fontSize:18}},"Receipt Scanned ✓"),
+          e("h3",{style:{fontWeight:800,fontSize:18}},scanResult.mode==="detailed"?"Receipt Scanned — Line Items ✓":"Receipt Scanned ✓"),
           e("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:onCancelScan},e(Icon,{d:IC.x,size:20}))
         ),
-        e("div",{style:{...S.card,marginBottom:20,background:"rgba(15,188,249,0.06)",border:"1px solid rgba(15,188,249,0.2)"}},
-          [["Merchant",scanResult.name,"#f0f0f5"],["Amount",fmt(parseFloat(scanResult.amount)||0,form.currency),"#0fbcf9"],["Category",scanResult.category,"#f0f0f5"]].map(([k,v,c])=>
-            e("div",{key:k,style:{display:"flex",justifyContent:"space-between",marginBottom:8}},
-              e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase"}},k),
-              e("span",{style:{fontWeight:700,color:c}},v)
+
+        // Simple mode result
+        scanResult.mode!=="detailed"&&e(React.Fragment,null,
+          e("div",{style:{...S.card,marginBottom:20,background:"rgba(15,188,249,0.06)",border:"1px solid rgba(15,188,249,0.2)"}},
+            [["Merchant",scanResult.name,"#f0f0f5"],["Amount",fmt(parseFloat(scanResult.amount)||0,form.currency),"#0fbcf9"],["Category",scanResult.category,"#f0f0f5"]].map(([k,v,c])=>
+              e("div",{key:k,style:{display:"flex",justifyContent:"space-between",marginBottom:8}},
+                e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase"}},k),
+                e("span",{style:{fontWeight:700,color:c}},v)
+              )
+            ),
+            convertedPreview!==null&&e("div",{style:{borderTop:"1px solid rgba(255,255,255,0.08)",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}},
+              e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase"}},"Converted"),
+              e("span",{style:{fontWeight:700,color:"#f5a623"}},"≈ ",fmt(convertedPreview,incomeCurrency))
             )
           ),
-          convertedPreview!==null&&e("div",{style:{borderTop:"1px solid rgba(255,255,255,0.08)",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}},
-            e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase"}},"Converted"),
-            e("span",{style:{fontWeight:700,color:"#f5a623"}},"≈ ",fmt(convertedPreview,incomeCurrency))
+          e("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginBottom:14}},"Save as:"),
+          e("div",{style:{display:"flex",gap:10}},
+            e("button",{style:S.btn("#e94560"),onClick:()=>onConfirmScan("recurring")},"Fixed"),
+            e("button",{style:S.btn("#f5a623"),onClick:()=>onConfirmScan("daily")},"Variable"),
+            e("button",{style:S.ghost,onClick:onCancelScan},"Cancel")
           )
         ),
-        e("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginBottom:14}},"Save as:"),
-        e("div",{style:{display:"flex",gap:10}},
-          e("button",{style:S.btn("#e94560"),onClick:()=>onConfirmScan("recurring")},"Fixed"),
-          e("button",{style:S.btn("#f5a623"),onClick:()=>onConfirmScan("daily")},"Variable"),
-          e("button",{style:S.ghost,onClick:onCancelScan},"Cancel")
+
+        // Detailed mode — line items
+        scanResult.mode==="detailed"&&e(React.Fragment,null,
+          e("div",{style:{...S.card,marginBottom:12,padding:"10px 14px",background:"rgba(15,188,249,0.04)",border:"1px solid rgba(15,188,249,0.15)"}},
+            e("div",{style:{display:"flex",justifyContent:"space-between"}},
+              e("span",{style:{fontSize:13,fontWeight:700}},scanResult.name||"Receipt"),
+              e("span",{style:{fontSize:13,fontWeight:800,color:"#0fbcf9"}},fmt(scanResult.total||0,form.currency))
+            ),
+            scanResult.date&&e("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:2}},scanResult.date)
+          ),
+          e("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:8}},
+            (scanResult.items||[]).length," line items found — tap to add each:"),
+          e("div",{style:{maxHeight:300,overflowY:"auto",marginBottom:14}},
+            (scanResult.items||[]).map((item,i)=>
+              e("div",{key:i,style:{...S.card,marginBottom:8,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"},
+                onClick:()=>{
+                  setForm(f=>({...f,name:item.name,amount:(item.total||item.unit_price||0).toString(),currency:form.currency,category:classify(item.category||item.name),subcat:item.category||""}));
+                  onCancelScan();
+                }},
+                e("div",null,
+                  e("p",{style:{fontWeight:600,fontSize:13}},item.name),
+                  e("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)"}},
+                    item.qty&&item.qty>1?`${item.qty}x ${fmt(item.unit_price||0,form.currency)} · `:"",
+                    item.category||"")
+                ),
+                e("div",{style:{textAlign:"right"}},
+                  e("p",{style:{fontWeight:800,color:"#0fbcf9"}},fmt(item.total||item.unit_price||0,form.currency)),
+                  e("p",{style:{fontSize:10,color:"rgba(255,255,255,0.3)"}},"tap to add")
+                )
+              )
+            )
+          ),
+          e("button",{style:{...S.ghost,width:"100%"},onClick:onCancelScan},"Cancel")
         )
       ) : scanState==="scanning" ? e("div",{style:{textAlign:"center",padding:"40px 0"}},
         e("div",{style:{fontSize:48,marginBottom:16,display:"inline-block",animation:"spin 1s linear infinite"}},"🔍"),
@@ -943,14 +959,31 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           e("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:onClose},e(Icon,{d:IC.x,size:20}))
         ),
         !isEditing&&e(React.Fragment,null,
-          e("div",{style:{display:"flex",gap:8,marginBottom:18}},
+          // Credits indicator
+          aiCredits !== undefined && e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"8px 12px",borderRadius:10,
+            background:aiCredits>5?"rgba(74,222,158,0.06)":aiCredits>0?"rgba(245,166,35,0.06)":"rgba(233,69,96,0.06)",
+            border:`1px solid ${aiCredits>5?"rgba(74,222,158,0.2)":aiCredits>0?"rgba(245,166,35,0.2)":"rgba(233,69,96,0.2)"}`}},
+            e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.5)"}},
+              aiCredits>0?`🤖 ${aiCredits} scan credit${aiCredits===1?"":"s"} remaining`:"🤖 No scan credits remaining"),
+            aiCredits<=0&&e("button",{style:{fontSize:11,color:"#4ade9e",background:"none",border:"none",cursor:"pointer",fontWeight:700},
+              onClick:onBuyCredits},"Buy credits →")
+          ),
+          // Scan mode selector
+          aiCredits>0&&e("div",{style:{marginBottom:12}},
+            e("label",{style:S.label},"Scan mode"),
+            e("div",{style:{display:"flex",gap:8}},
+              e("button",{style:S.pill(scanMode==="simple","#0fbcf9"),onClick:()=>setScanMode("simple")},"Simple (total only)"),
+              e("button",{style:S.pill(scanMode==="detailed","#f5a623"),onClick:()=>setScanMode("detailed")},"Detailed (line items)")
+            )
+          ),
+          e("div",{style:{display:"flex",gap:8,marginBottom:18,opacity:aiCredits>0?1:0.4,pointerEvents:aiCredits>0?"auto":"none"}},
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(15,188,249,0.3)",background:"rgba(15,188,249,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>fileRef.current?.click()},
               e(Icon,{d:IC.receipt,size:15,stroke:"#0fbcf9"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#0fbcf9"}},"Upload Receipt")),
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(245,166,35,0.3)",background:"rgba(245,166,35,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>cameraRef.current?.click()},
               e(Icon,{d:IC.camera,size:15,stroke:"#f5a623"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#f5a623"}},"Camera"))
           ),
-          e("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0])}),
-          e("input",{ref:cameraRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0])}),
+          e("input",{ref:fileRef,type:"file",accept:"image/*",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
+          e("input",{ref:cameraRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
           e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:18}},
             e("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.07)"}}),
             e("span",{style:{fontSize:11,color:"rgba(255,255,255,0.2)",fontWeight:600}},"OR MANUALLY"),
@@ -1439,7 +1472,7 @@ function FamilyMembers({budget, token, plan}) {
   );
 }
 
-function AccountTab({user,profile,token,budget,onSignOut,onUpgrade}) {
+function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade}) {
   function handlePortal() {
     window.location.href = "https://billing.stripe.com/p/login/test_fZu14n7ht2aI76ycdWbsc00";
   }
@@ -1468,6 +1501,34 @@ function AccountTab({user,profile,token,budget,onSignOut,onUpgrade}) {
 
     // Family members section
     profile?.plan==="family" && React.createElement(FamilyMembers,{budget,token,plan:profile?.plan}),
+
+    // AI Credits display
+    React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+          React.createElement("span",{style:{fontSize:18}},"🤖"),
+          React.createElement("p",{style:{fontWeight:700,fontSize:14}},"AI Scanner Credits")
+        ),
+        React.createElement("span",{style:{fontSize:22,fontWeight:900,color:aiCredits>5?"#4ade9e":aiCredits>0?"#f5a623":"#e94560"}},
+          aiCredits ?? "...")
+      ),
+      React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:12}},
+        profile?.plan==="free"  ? "3 free credits included · Buy more anytime" :
+        profile?.plan==="pro"   ? "10 credits/month included · Buy more anytime" :
+                                  "20 credits/month included · Buy more anytime"),
+      React.createElement("div",{style:{display:"flex",gap:8,flexWrap:"wrap"}},
+        [
+          {label:"Starter · 30 credits", price:"€2.99", url:"https://buy.stripe.com/test_eVq7sL8lxbLi8aC6TCbsc04"},
+          {label:"Business · 100 credits", price:"€7.99", url:"https://buy.stripe.com/test_aFacN5eJV7v24Yqdi0bsc05"},
+          {label:"Enterprise · 200 credits", price:"€12.99", url:"https://buy.stripe.com/test_9B6aEX1X95mU0Iagucbsc06"},
+        ].map(pkg =>
+          React.createElement("button",{key:pkg.label,
+            style:{...S.ghost,fontSize:12,padding:"8px 12px",flex:1,minWidth:"120px"},
+            onClick:()=>window.location.href=pkg.url},
+            pkg.label," · ",pkg.price)
+        )
+      )
+    ),
 
     // Actions
     React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
@@ -1510,6 +1571,8 @@ function BudgetApp() {
   const [ratesLoading, setRatesLoading] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [dataLoading, setDataLoading] = useState(false);
+  const [aiCredits, setAiCredits]   = useState(null); // null = loading
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
 
   // ── Auth check on mount ──────────────────────────────────────────────────
   // Check for invite token in URL
@@ -1634,6 +1697,14 @@ function BudgetApp() {
       } catch(e) { console.error("profile load error:", e); }
       console.log("final profile:", prof);
       setProfile(prof);
+
+      // Load AI credits
+      try {
+        const credDb = await sb.from("ai_credits", token);
+        const credRows = await credDb.select("credits", `user_id=eq.${userData.id}`);
+        const cred = Array.isArray(credRows) && credRows.length > 0 ? credRows[0] : null;
+        setAiCredits(cred?.credits ?? 0);
+      } catch(e) { setAiCredits(0); }
 
       // Step 3: get all budgets
       let bud = null;
@@ -1856,16 +1927,30 @@ function BudgetApp() {
     setModal(null);
   }
 
-  async function handleScanFile(file) {
+  async function handleScanFile(file, mode="simple") {
+    if (aiCredits !== null && aiCredits <= 0) {
+      setShowBuyCredits(true);
+      return;
+    }
     setScanState("scanning"); setScanError(null);
     try {
-      const result = await scanReceipt(file);
-      if(result.error){setScanError(result.error);setScanState("error");return;}
-      const dc=CURRENCIES.includes(result.currency)?result.currency:incomeCurrency;
-      setScanResult(result);
-      setForm({name:result.name||"",amount:result.amount?.toString()||"",currency:dc,category:classify(result.category||result.name||""),subcat:result.category||"",customRate:""});
+      const b64 = await toJpeg(file);
+      const res = await sb.callFunction("scan-receipt", authToken, { imageBase64: b64, mode });
+      if (res.error === "no_credits") {
+        setShowBuyCredits(true);
+        setScanState("idle");
+        return;
+      }
+      if (res.error) { setScanError(res.error); setScanState("error"); return; }
+      // Update credits count
+      if (res.credits_remaining !== undefined) setAiCredits(res.credits_remaining);
+      const dc = CURRENCIES.includes(res.currency) ? res.currency : incomeCurrency;
+      setScanResult({ ...res, mode });
+      if (mode === "simple") {
+        setForm({name:res.name||"",amount:res.amount?.toString()||"",currency:dc,category:classify(res.category||res.name||""),subcat:res.category||"",customRate:"",targetBudgetId:budget?.id});
+      }
       setScanState("result");
-    } catch(err){setScanError(err.message||"Unknown error");setScanState("error");}
+    } catch(err) { setScanError(err.message||"Unknown error"); setScanState("error"); }
   }
 
   function confirmScan(type){addExpense(type);setScanState("idle");setScanResult(null);setModal(null);}
@@ -1962,7 +2047,7 @@ function BudgetApp() {
     tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||""}),
-    tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
+    tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
 
     React.createElement("nav",{style:S.navBar},
       [{id:"home",label:"Overview",icon:IC.home},{id:"expenses",label:"Expenses",icon:IC.receipt},{id:"history",label:"History",icon:IC.history},{id:"account",label:"Account",icon:IC.users}].map(item=>
@@ -1971,7 +2056,7 @@ function BudgetApp() {
       )
     ),
 
-    React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,rates,incomeCurrency,budgets,activeBudgetId:budget?.id}),
+    React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,rates,incomeCurrency,budgets,activeBudgetId:budget?.id,aiCredits,onBuyCredits:()=>setTab("account")}),
     showBudgetPicker && React.createElement(BudgetPicker,null),
     React.createElement(RatesModal,{show:showRates,onClose:()=>setShowRates(false),rates,liveRates,ratesLoading,onSave:(cur,val)=>updateBudget({rates:{...(budget?.rates||{}),[cur]:val}}),onResetToLive:(cur)=>updateBudget({rates:{...(budget?.rates||{}),  [cur]:liveRates[cur]}})}),
     React.createElement(PaydayResetModal,{show:showPaydayReset,userName:profile?.name,income:budget?.monthly_income,currency:incomeCurrency,rates,
