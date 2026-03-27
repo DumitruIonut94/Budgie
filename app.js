@@ -1018,7 +1018,7 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           ),
           e("div",{style:{display:"flex",gap:8,marginBottom:18,opacity:aiCredits>0?1:0.4,pointerEvents:aiCredits>0?"auto":"none"}},
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(15,188,249,0.3)",background:"rgba(15,188,249,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>fileRef.current?.click()},
-              e(Icon,{d:IC.receipt,size:15,stroke:"#0fbcf9"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#0fbcf9"}},"Upload Receipt / PDF")),
+              e(Icon,{d:IC.receipt,size:15,stroke:"#0fbcf9"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#0fbcf9"}},"Upload Receipt/Invoice")),
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(245,166,35,0.3)",background:"rgba(245,166,35,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>cameraRef.current?.click()},
               e(Icon,{d:IC.camera,size:15,stroke:"#f5a623"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#f5a623"}},"Camera"))
           ),
