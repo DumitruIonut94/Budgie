@@ -1443,7 +1443,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
 // ─────────────────────────────────────────────────────────────────────────────
 // History Tab (Pro/Family only)
 // ─────────────────────────────────────────────────────────────────────────────
-function HistoryTab({history,plan,onUpgrade,userName,budget,expenses}) {
+function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
   const [fromPeriod, setFromPeriod] = useState("");
   const [toPeriod, setToPeriod]     = useState("");
   const [exporting, setExporting]   = useState(false);
@@ -1452,6 +1452,30 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses}) {
     if(!p)return"";
     const [y,m]=p.split("-");
     return new Date(parseInt(y),parseInt(m)-1,1).toLocaleString("en-US",{month:"long",year:"numeric"});
+  }
+
+  // Fetch all expenses for a date range from Supabase
+  async function fetchExpensesForRange(fromP, toP) {
+    if (!budget?.id || !token) return [];
+    try {
+      // Calculate date range from period strings
+      const fromDate = fromP ? `${fromP}-01` : "2000-01-01";
+      // Last day of toPeriod month
+      let toDate = "2099-12-31";
+      if (toP) {
+        const [y,m] = toP.split("-").map(Number);
+        const lastDay = new Date(y, m, 0).getDate();
+        toDate = `${toP}-${String(lastDay).padStart(2,"0")}`;
+      }
+      const db = await sb.from("expenses", token);
+      const rows = await db.select("*", 
+        `budget_id=eq.${budget.id}&expense_date=gte.${fromDate}&expense_date=lte.${toDate}&order=expense_date.asc`
+      );
+      return Array.isArray(rows) ? rows : [];
+    } catch(e) { 
+      console.error("fetchExpensesForRange error:", e);
+      return []; 
+    }
   }
 
   // All available periods from history
@@ -1466,11 +1490,15 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses}) {
     return true;
   });
 
-  // Export CSV
-  function exportCSV() {
+  // Export CSV — includes summary + individual expenses
+  async function exportCSV() {
     setExporting(true);
     try {
-      const rows = [["Period","Income","Currency","Needs","Wants","Savings","Total","Saved"]];
+      // Fetch all expenses for the selected range
+      const allExpenses = await fetchExpensesForRange(fromPeriod||oldest, toPeriod||newest);
+
+      // Part 1: Summary rows
+      const rows = [["SUMMARY"],["Period","Income","Currency","Needs","Wants","Savings","Total","Saved"]];
       filtered.forEach(h => {
         const saved = (h.income||0) - (h.total||0);
         rows.push([
@@ -1484,12 +1512,29 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses}) {
           saved.toFixed(2),
         ]);
       });
-      const csv = rows.map(r => r.map(v => '"' + String(v).replace(/"/g, '""') + '"').join(",")).join("\n");
-      const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
+
+      // Part 2: Individual expenses
+      rows.push([]);
+      rows.push(["EXPENSES"]);
+      rows.push(["Date","Name","Type","Category","Subcategory","Amount","Currency"]);
+      allExpenses.forEach(e => {
+        rows.push([
+          e.expense_date||"",
+          e.name||"",
+          e.type==="recurring"?"Fixed":"Variable",
+          e.category||"",
+          e.subcat||"",
+          (parseFloat(e.amount)||0).toFixed(2),
+          e.currency||"RON",
+        ]);
+      });
+
+      const csv = rows.map(r => r.map(v => '"' + String(v||"").replace(/"/g, '""') + '"').join(",")).join("\n");
+      const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"});
       const url  = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = url;
-      a.download = `budgie-history-${fromPeriod||oldest}-${toPeriod||newest}.csv`;
+      a.download = `budgie-export-${fromPeriod||oldest}-${toPeriod||newest}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     } catch(e) { alert("Export failed: "+e.message); }
@@ -1547,26 +1592,32 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses}) {
       y += 40;
 
       // Period rows
+      // Fetch expenses for range
+      const allExpenses = await fetchExpensesForRange(fromPeriod||oldest, toPeriod||newest);
+
+      // Group expenses by period
+      const expByPeriod = {};
+      allExpenses.forEach(e => {
+        const p = (e.expense_date||"").slice(0,7); // "YYYY-MM"
+        if (!expByPeriod[p]) expByPeriod[p] = [];
+        expByPeriod[p].push(e);
+      });
+
       filtered.forEach((h,i) => {
-        if (y > 260) { doc.addPage(); y = 20; }
+        if (y > 240) { doc.addPage(); y = 20; }
         const income = h.income||0;
         const over = (h.total||0) > income && income > 0;
         const savedPct = income>0?Math.max(0,((income-(h.total||0))/income*100)).toFixed(0):"—";
 
+        // Period header
         doc.setFillColor(i%2===0?18:22, i%2===0?18:22, i%2===0?28:32);
         doc.rect(margin,y,W-margin*2,26,"F");
-
-        // Period name
         doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont("helvetica","bold");
         doc.text(periodLabel(h.period), margin+4, y+8);
-
-        // Badge
         doc.setFillColor(over?233:74, over?69:222, over?96:158, 0.3);
         doc.setTextColor(over?233:74, over?69:222, over?96:158);
         doc.setFontSize(8);
         doc.text(over?"Over budget":`${savedPct}% saved`, margin+4, y+16);
-
-        // Numbers
         doc.setFont("helvetica","normal"); doc.setFontSize(9);
         [
           [`Income: ${fmt2(income)}`, margin+50],
@@ -1578,6 +1629,37 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses}) {
           doc.text(txt, x, y+12);
         });
         y += 30;
+
+        // Expenses for this period
+        const periodExps = expByPeriod[h.period] || [];
+        if (periodExps.length > 0) {
+          // Column headers
+          if (y > 270) { doc.addPage(); y = 20; }
+          doc.setFontSize(7); doc.setTextColor(120,120,140); doc.setFont("helvetica","bold");
+          doc.text("Date", margin+2, y+4);
+          doc.text("Name", margin+18, y+4);
+          doc.text("Type", margin+100, y+4);
+          doc.text("Category", margin+128, y+4);
+          doc.text("Amount", margin+162, y+4);
+          y += 7;
+
+          periodExps.forEach(e => {
+            if (y > 275) { doc.addPage(); y = 20; }
+            doc.setFont("helvetica","normal"); doc.setFontSize(8);
+            doc.setTextColor(200,200,210);
+            const name = (e.name||"").slice(0,38);
+            doc.text(e.expense_date||"", margin+2, y+4);
+            doc.text(name, margin+18, y+4);
+            doc.setTextColor(e.type==="recurring"?233:245, e.type==="recurring"?69:166, e.type==="recurring"?96:35);
+            doc.text(e.type==="recurring"?"Fixed":"Var.", margin+100, y+4);
+            doc.setTextColor(160,160,180);
+            doc.text((e.category||"").slice(0,14), margin+128, y+4);
+            doc.setTextColor(15,188,249);
+            doc.text(`${(parseFloat(e.amount)||0).toFixed(2)} ${e.currency||"RON"}`, margin+162, y+4);
+            y += 6;
+          });
+          y += 4;
+        }
       });
 
       // Footer
@@ -2411,7 +2493,7 @@ function BudgetApp() {
 
     tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
-    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses}),
+    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
 
     React.createElement("nav",{style:S.navBar},
