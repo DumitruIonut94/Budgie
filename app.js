@@ -1587,7 +1587,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
       doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont("helvetica","bold");
       doc.text("Summary", margin+4, y+8);
       doc.setFont("helvetica","normal"); doc.setFontSize(9);
-      const cols = [[`Income: ${fmt2(totalIncome)}`,margin+4],[`Needs: ${fmt2(totalNeeds)}`,margin+52],[`Wants: ${fmt2(totalWants)}`,margin+98],[`Saved: ${fmt2(totalIncome-totalSpent)}`,margin+144]];
+      const cols = [[`Income: ${fmt2(totalIncome)}`,margin+4],[`Needs: ${fmt2(totalNeeds)}`,margin+50],[`Wants: ${fmt2(totalWants)}`,margin+96],[`Saved: ${fmt2(totalIncome-totalSpent)}`,margin+142]];
       cols.forEach(([txt,x])=>{ doc.setTextColor(200,200,220); doc.text(txt,x,y+18); });
       y += 40;
 
@@ -1611,24 +1611,22 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
 
         // Period header
         doc.setFillColor(i%2===0?18:22, i%2===0?18:22, i%2===0?28:32);
-        doc.rect(margin,y,W-margin*2,26,"F");
+        doc.rect(margin,y,W-margin*2,28,"F");
         doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont("helvetica","bold");
         doc.text(periodLabel(h.period), margin+4, y+8);
         doc.setFillColor(over?233:74, over?69:222, over?96:158, 0.3);
         doc.setTextColor(over?233:74, over?69:222, over?96:158);
         doc.setFontSize(8);
         doc.text(over?"Over budget":`${savedPct}% saved`, margin+4, y+16);
-        doc.setFont("helvetica","normal"); doc.setFontSize(9);
-        [
-          [`Income: ${fmt2(income)}`, margin+50],
-          [`Needs: ${fmt2(h.needs||0)}`, margin+98],
-          [`Wants: ${fmt2(h.wants||0)}`, margin+130],
-          [`Savings: ${fmt2(h.savings||0)}`, margin+162],
-        ].forEach(([txt,x]) => {
-          doc.setTextColor(180,180,200);
-          doc.text(txt, x, y+12);
-        });
-        y += 30;
+        doc.setFont("helvetica","normal"); doc.setFontSize(8);
+        // Row 1: Income + Needs
+        doc.setTextColor(180,180,200);
+        doc.text(`Income: ${fmt2(income)}`, margin+48, y+10);
+        doc.text(`Needs: ${fmt2(h.needs||0)}`, margin+112, y+10);
+        // Row 2: Wants + Savings
+        doc.text(`Wants: ${fmt2(h.wants||0)}`, margin+48, y+20);
+        doc.text(`Savings: ${fmt2(h.savings||0)}`, margin+112, y+20);
+        y += 32;
 
         // Expenses for this period
         const periodExps = expByPeriod[h.period] || [];
