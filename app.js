@@ -229,6 +229,54 @@ const CATEGORIES = {
 };
 const CAT_COLOR = { needs: "#e94560", wants: "#f5a623", savings: "#0fbcf9" };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Push Notifications
+// ─────────────────────────────────────────────────────────────────────────────
+const VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY"; // Replace with your VAPID public key
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+async function requestPushPermission(token, userId) {
+  try {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") return false;
+
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+    });
+
+    // Save subscription to Supabase
+    const db = await sb.from("push_subscriptions", token);
+    await db.insert({ user_id: userId, subscription: sub.toJSON() });
+    console.log("Push subscription saved");
+    return true;
+  } catch(e) {
+    console.error("Push permission error:", e);
+    return false;
+  }
+}
+
+async function sendLocalNotification(title, body, url="/") {
+  if (Notification.permission !== "granted") return;
+  const reg = await navigator.serviceWorker.ready;
+  reg.showNotification(title, {
+    body,
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url },
+  });
+}
+
 async function fetchLiveRates() {
   const today = new Date().toISOString().slice(0, 10);
   const urls = [
@@ -1890,7 +1938,7 @@ function FamilyMembers({budget, token, plan}) {
   );
 }
 
-function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade}) {
+function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onRequestPush,notifPrefs,onToggleNotif}) {
   function handlePortal() {
     window.location.href = "https://billing.stripe.com/p/login/test_fZu14n7ht2aI76ycdWbsc00";
   }
@@ -1948,6 +1996,33 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade}) {
       )
     ),
 
+    // Notification settings
+    React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+        React.createElement("p",{style:{fontWeight:700,fontSize:14}},"🔔 Notifications"),
+        React.createElement("button",{
+          style:{fontSize:12,color:"#4ade9e",background:"none",border:"none",cursor:"pointer",fontWeight:700},
+          onClick:()=>onRequestPush()},"Enable")
+      ),
+      [
+        {key:"budget_alerts", label:"⚠️ Budget alerts (80%)"},
+        {key:"payday_reset",  label:"💰 Payday reset"},
+        {key:"daily_reminder",label:"🦖 Daily reminder"},
+        {key:"weekly_summary",label:"📊 Weekly summary"},
+      ].map(item =>
+        React.createElement("div",{key:item.key,style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+          React.createElement("span",{style:{fontSize:13,color:"rgba(255,255,255,0.6)"}},item.label),
+          React.createElement("div",{
+            style:{width:40,height:22,borderRadius:99,cursor:"pointer",position:"relative",transition:"background 0.2s",
+              background:notifPrefs?.[item.key]?"#4ade9e":"rgba(255,255,255,0.1)"},
+            onClick:()=>onToggleNotif(item.key)},
+            React.createElement("div",{style:{position:"absolute",top:2,width:18,height:18,borderRadius:99,background:"#fff",transition:"left 0.2s",
+              left:notifPrefs?.[item.key]?"19px":"2px"}})
+          )
+        )
+      )
+    ),
+
     // Actions
     React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
       profile?.plan==="free"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f"},onClick:onUpgrade},
@@ -1989,8 +2064,12 @@ function BudgetApp() {
   const [ratesLoading, setRatesLoading] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [dataLoading, setDataLoading] = useState(false);
-  const [aiCredits, setAiCredits]   = useState(null); // null = loading
+  const [aiCredits, setAiCredits]   = useState(null);
   const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState({
+    budget_alerts: true, payday_reset: true,
+    daily_reminder: true, weekly_summary: true,
+  });
 
   // ── Auth check on mount ──────────────────────────────────────────────────
   // Check for invite token in URL
@@ -2116,6 +2195,21 @@ function BudgetApp() {
       console.log("final profile:", prof);
       setProfile(prof);
 
+      // Load notification preferences
+      try {
+        const notifDb = await sb.from("notification_preferences", token);
+        const notifRows = await notifDb.select("*", `user_id=eq.${userData.id}`);
+        if (Array.isArray(notifRows) && notifRows[0]) {
+          const p = notifRows[0];
+          setNotifPrefs({
+            budget_alerts:  p.budget_alerts  ?? true,
+            payday_reset:   p.payday_reset   ?? true,
+            daily_reminder: p.daily_reminder ?? true,
+            weekly_summary: p.weekly_summary ?? true,
+          });
+        }
+      } catch(e) { console.error("notif prefs load error:", e); }
+
       // Load AI credits
       try {
         const credDb = await sb.from("ai_credits", token);
@@ -2151,6 +2245,11 @@ function BudgetApp() {
               await budgetDb2.update({current_period: periodKey}, `id=eq.${bud.id}`);
               setBudget({...bud, current_period: periodKey});
               setShowPaydayReset(true);
+            sendLocalNotification(
+              "💰 Payday Reset!",
+              "Your variable expenses have been reset. New budget period started!",
+              "/"
+            );
             } catch(e) { console.error("payday reset error:", e); }
           }
         }
@@ -2211,6 +2310,10 @@ function BudgetApp() {
 
   async function handleOnboardingComplete(data) {
     setDataLoading(true);
+    // Request push permission after onboarding
+    if (user?.id) {
+      setTimeout(() => requestPushPermission(authToken, user.id), 2000);
+    }
     try {
       const budgetDb = await sb.from("budgets", authToken);
       const insertData = {
@@ -2301,6 +2404,56 @@ function BudgetApp() {
     } catch(e) { console.error("deleteBudget error:", e); }
   }
 
+  function checkBudgetAlert(allExpenses, newExpense) {
+    if (!budget) return;
+    const income = parseFloat(budget.monthly_income) || 0;
+    if (income <= 0) return;
+    const cat = newExpense.category;
+    const budgetPct = cat === "needs" ? 0.5 : cat === "wants" ? 0.3 : 0.2;
+    const catBudget = income * budgetPct;
+    const er = { RON:1, ...rates };
+    const catSpent = allExpenses
+      .filter(e => e.category === cat)
+      .reduce((sum, e) => {
+        const expRates = e.custom_rate ? {...er, [e.custom_rate_cur||e.currency]: e.custom_rate} : er;
+        return sum + convert(parseFloat(e.amount)||0, e.currency||incomeCurrency, incomeCurrency, expRates);
+      }, 0);
+    const pct = catSpent / catBudget;
+    if (pct >= 0.8 && pct < 1.0) {
+      sendLocalNotification(
+        "⚠️ Budget Alert",
+        `You've used ${Math.round(pct*100)}% of your ${cat} budget this period.`,
+        "/"
+      );
+    } else if (pct >= 1.0) {
+      sendLocalNotification(
+        "🚨 Over Budget!",
+        `You've exceeded your ${cat} budget by ${fmt(catSpent - catBudget, incomeCurrency)}.`,
+        "/"
+      );
+    }
+  }
+
+  async function handleRequestPush() {
+    if (!user?.id) return;
+    const granted = await requestPushPermission(authToken, user.id);
+    if (granted) {
+      sendLocalNotification("🦜 Budgie Notifications", "You'll now receive budget alerts and reminders!");
+    } else {
+      alert("Notifications blocked. Please enable them in your browser settings.");
+    }
+  }
+
+  async function handleToggleNotif(key) {
+    const updated = {...notifPrefs, [key]: !notifPrefs[key]};
+    setNotifPrefs(updated);
+    // Save to Supabase
+    try {
+      const db = await sb.from("notification_preferences", authToken);
+      await db.upsert({user_id: user.id, ...updated});
+    } catch(e) { console.error("notif pref save error:", e); }
+  }
+
   function openAdd(type) {
     setEditingExpense(null);
     setForm({name:"",amount:"",currency:incomeCurrency,category:"wants",subcat:"",customRate:"",targetBudgetId:budget?.id});
@@ -2339,7 +2492,10 @@ function BudgetApp() {
       const result = await db.insert(entry);
       // Only update local state if expense was added to current active budget
       if(Array.isArray(result)&&result[0]&&targetBudId===budget.id) {
-        setExpenses(ex=>[result[0],...ex]);
+        const newExpenses = [result[0], ...expenses];
+        setExpenses(newExpenses);
+        // Check 80% budget alert
+        checkBudgetAlert(newExpenses, result[0]);
       }
     }
     setModal(null);
@@ -2492,7 +2648,7 @@ function BudgetApp() {
     tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken}),
-    tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
+    tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif}),
 
     React.createElement("nav",{style:S.navBar},
       [{id:"home",label:"Overview",icon:IC.home},{id:"expenses",label:"Expenses",icon:IC.receipt},{id:"history",label:"History",icon:IC.history},{id:"account",label:"Account",icon:IC.users}].map(item=>
