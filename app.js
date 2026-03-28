@@ -232,7 +232,7 @@ const CAT_COLOR = { needs: "#e94560", wants: "#f5a623", savings: "#0fbcf9" };
 // ─────────────────────────────────────────────────────────────────────────────
 // Push Notifications
 // ─────────────────────────────────────────────────────────────────────────────
-const VAPID_PUBLIC_KEY = "BNeh1VhFBrr5kuWUx4rcJ7BPde3BE1XF8Us728enJ74M6TIpnQOMS4WHtEUuBgUJfRrWW_-oqLpC06wHMOBPDj0"; // Replace with your VAPID public key
+const VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY"; // Replace with your VAPID public key
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
@@ -245,23 +245,44 @@ function urlBase64ToUint8Array(base64String) {
 
 async function requestPushPermission(token, userId) {
   try {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
-    const permission = await Notification.requestPermission();
-    if (permission !== "granted") return false;
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      alert("Push notifications not supported in this browser.");
+      return false;
+    }
+
+    // Request permission if not already granted
+    let permission = Notification.permission;
+    if (permission === "default") {
+      permission = await Notification.requestPermission();
+    }
+    if (permission !== "granted") {
+      alert("Please enable notifications in your browser settings.");
+      return false;
+    }
 
     const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
 
-    // Save subscription to Supabase
+    // Check if already subscribed
+    let sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      // Already subscribed — just save to DB in case it wasn't saved
+      console.log("Already subscribed, saving to DB...");
+    } else {
+      // Create new subscription
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+
+    // Save subscription to Supabase (upsert)
     const db = await sb.from("push_subscriptions", token);
-    await db.insert({ user_id: userId, subscription: sub.toJSON() });
-    console.log("Push subscription saved");
+    await db.upsert({ user_id: userId, subscription: sub.toJSON() });
+    console.log("Push subscription saved:", sub.endpoint.slice(0, 50));
     return true;
   } catch(e) {
-    console.error("Push permission error:", e);
+    console.error("Push permission error:", e.message);
+    alert("Error enabling notifications: " + e.message);
     return false;
   }
 }
