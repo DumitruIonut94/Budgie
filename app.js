@@ -334,16 +334,16 @@ async function fileToBase64(file) {
 // Static styles
 // ─────────────────────────────────────────────────────────────────────────────
 const S = {
-  app:     { fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#0a0a0f", color:"#f0f0f5", minHeight:"100vh", maxWidth:420, margin:"0 auto", position:"relative", paddingBottom:80, overflowX:"hidden" },
-  header:  { padding:"52px 24px 20px", background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)" },
-  card:    { background:"rgba(255,255,255,0.04)", borderRadius:20, padding:20, border:"1px solid rgba(255,255,255,0.07)" },
+  app:     { fontFamily:"'DM Sans','Segoe UI',sans-serif", background:"#0a0a0f", color:"#f0f0f5", minHeight:"100vh", maxWidth:480, width:"100%", margin:"0 auto", position:"relative", paddingBottom:80, overflowX:"hidden" },
+  header:  { padding:"max(env(safe-area-inset-top, 16px), 44px) 20px 16px", background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)" },
+  card:    { background:"rgba(255,255,255,0.04)", borderRadius:16, padding:16, border:"1px solid rgba(255,255,255,0.07)" },
   input:   { width:"100%", background:"rgba(255,255,255,0.06)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:12, padding:"12px 14px", color:"#f0f0f5", fontSize:15, outline:"none", boxSizing:"border-box", fontFamily:"inherit" },
   btn:     (color="#e94560",full=false) => ({ background:color, color:"#fff", border:"none", borderRadius:14, padding:"14px 24px", fontSize:15, fontWeight:700, cursor:"pointer", width:full?"100%":"auto", fontFamily:"inherit" }),
   ghost:   { background:"rgba(255,255,255,0.06)", color:"rgba(255,255,255,0.6)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:14, padding:"14px 16px", fontSize:14, fontWeight:600, cursor:"pointer", fontFamily:"inherit" },
-  navBar:  { position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:420, background:"rgba(10,10,15,0.95)", backdropFilter:"blur(20px)", borderTop:"1px solid rgba(255,255,255,0.07)", display:"flex", justifyContent:"space-around", padding:"10px 0 16px", zIndex:100 },
+  navBar:  { position:"fixed", bottom:0, left:"50%", transform:"translateX(-50%)", width:"100%", maxWidth:480, background:"rgba(10,10,15,0.95)", backdropFilter:"blur(20px)", borderTop:"1px solid rgba(255,255,255,0.07)", display:"flex", justifyContent:"space-around", padding:"10px 0 16px", zIndex:100 },
   navBtn:  (a) => ({ display:"flex", flexDirection:"column", alignItems:"center", gap:4, background:"none", border:"none", color:a?"#e94560":"rgba(255,255,255,0.35)", cursor:"pointer", fontSize:10, fontWeight:600, letterSpacing:"0.5px", textTransform:"uppercase" }),
   overlay: { position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200, display:"flex", alignItems:"flex-end", backdropFilter:"blur(4px)" },
-  sheet:   { background:"#13131f", borderRadius:"24px 24px 0 0", padding:"28px 24px 40px", width:"100%", maxWidth:420, margin:"0 auto", border:"1px solid rgba(255,255,255,0.08)", maxHeight:"90vh", overflowY:"auto" },
+  sheet:   { background:"#13131f", borderRadius:"20px 20px 0 0", padding:"24px 20px max(env(safe-area-inset-bottom, 20px), 32px)", width:"100%", maxWidth:480, margin:"0 auto", border:"1px solid rgba(255,255,255,0.08)", maxHeight:"92vh", overflowY:"auto" },
   label:   { fontSize:12, fontWeight:600, color:"rgba(255,255,255,0.4)", letterSpacing:"0.8px", textTransform:"uppercase", marginBottom:6, display:"block" },
   pill:    (a,color="#e94560") => ({ padding:"6px 14px", borderRadius:50, fontSize:13, fontWeight:600, background:a?color:"rgba(255,255,255,0.06)", color:a?"#fff":"rgba(255,255,255,0.5)", border:"none", cursor:"pointer", fontFamily:"inherit" }),
 };
@@ -591,7 +591,7 @@ function UpgradeScreen({token, currentPlan, onClose}) {
 
   return React.createElement("div",{style:{minHeight:"100vh",background:"#0a0a0f",overflowY:"auto",maxWidth:420,margin:"0 auto"}},
     // Header
-    React.createElement("div",{style:{padding:"52px 24px 20px",background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)"}},
+    React.createElement("div",{style:{padding:"44px 20px 16px",background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)"}},
       React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
         React.createElement("div",null,
           React.createElement("p",{style:{fontSize:22,fontWeight:900}},"Upgrade Budgie"),
@@ -1405,7 +1405,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
   }
 
   return React.createElement("div",{style:{padding:"0 0 20px"}},
-    React.createElement("div",{style:{padding:"52px 24px 16px",background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)",marginBottom:16}},
+    React.createElement("div",{style:{padding:"44px 20px 14px",background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)",marginBottom:16}},
       React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
           React.createElement(BudgieLogo,{size:44}),
@@ -1669,7 +1669,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
     setExporting(false);
   }
 
-  if (plan==="free") return React.createElement("div",{style:{padding:"52px 16px 20px"}},
+  if (plan==="free") return React.createElement("div",{style:{padding:"44px 16px 16px"}},
     React.createElement("div",{style:{...S.card,textAlign:"center",padding:"48px 24px",background:"rgba(74,222,158,0.05)",border:"1px solid rgba(74,222,158,0.2)"}},
       React.createElement(Icon,{d:IC.lock,size:40,stroke:"#4ade9e"}),
       React.createElement("p",{style:{fontWeight:800,fontSize:18,marginTop:16,marginBottom:8}},"History is a Pro feature"),
@@ -1679,7 +1679,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
   );
 
   return React.createElement("div",{style:{padding:"0 0 20px"}},
-    React.createElement("div",{style:{padding:"52px 24px 16px",background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)",marginBottom:16}},
+    React.createElement("div",{style:{padding:"44px 20px 14px",background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)",marginBottom:16}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
         React.createElement(BudgieLogo,{size:44}),
         React.createElement("div",null,
@@ -1897,7 +1897,7 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade}) {
 
   const planColor = profile?.plan==="family"?"#4ade9e":profile?.plan==="pro"?"#0fbcf9":"rgba(255,255,255,0.4)";
 
-  return React.createElement("div",{style:{padding:"52px 16px 20px"}},
+  return React.createElement("div",{style:{padding:"44px 16px 16px"}},
     // Profile card
     React.createElement("div",{style:{...S.card,marginBottom:16,padding:20}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:16}},
