@@ -1443,11 +1443,151 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
 // ─────────────────────────────────────────────────────────────────────────────
 // History Tab (Pro/Family only)
 // ─────────────────────────────────────────────────────────────────────────────
-function HistoryTab({history,plan,onUpgrade,userName}) {
+function HistoryTab({history,plan,onUpgrade,userName,budget,expenses}) {
+  const [fromPeriod, setFromPeriod] = useState("");
+  const [toPeriod, setToPeriod]     = useState("");
+  const [exporting, setExporting]   = useState(false);
+
   function periodLabel(p) {
     if(!p)return"";
     const [y,m]=p.split("-");
     return new Date(parseInt(y),parseInt(m)-1,1).toLocaleString("en-US",{month:"long",year:"numeric"});
+  }
+
+  // All available periods from history
+  const periods = history.map(h=>h.period).sort();
+  const oldest  = periods[0] || "";
+  const newest  = periods[periods.length-1] || "";
+
+  // Filter history by range
+  const filtered = history.filter(h => {
+    if (fromPeriod && h.period < fromPeriod) return false;
+    if (toPeriod   && h.period > toPeriod)   return false;
+    return true;
+  });
+
+  // Export CSV
+  function exportCSV() {
+    setExporting(true);
+    try {
+      const rows = [["Period","Income","Currency","Needs","Wants","Savings","Total","Saved"]];
+      filtered.forEach(h => {
+        const saved = (h.income||0) - (h.total||0);
+        rows.push([
+          periodLabel(h.period),
+          (h.income||0).toFixed(2),
+          h.currency||"RON",
+          (h.needs||0).toFixed(2),
+          (h.wants||0).toFixed(2),
+          (h.savings||0).toFixed(2),
+          (h.total||0).toFixed(2),
+          saved.toFixed(2),
+        ]);
+      });
+      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("
+");
+      const blob = new Blob(["﻿"+csv], {type:"text/csv;charset=utf-8;"});
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `budgie-history-${fromPeriod||oldest}-${toPeriod||newest}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) { alert("Export failed: "+e.message); }
+    setExporting(false);
+  }
+
+  // Export PDF
+  async function exportPDF() {
+    setExporting(true);
+    try {
+      // Load jsPDF from CDN
+      if (!window.jspdf) {
+        await new Promise((res,rej) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+          s.onload = res; s.onerror = rej;
+          document.head.appendChild(s);
+        });
+      }
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+      const W = 210, margin = 16;
+      let y = 20;
+
+      // Header
+      doc.setFillColor(10,10,15);
+      doc.rect(0,0,W,30,"F");
+      doc.setTextColor(74,222,158);
+      doc.setFontSize(22); doc.setFont("helvetica","bold");
+      doc.text("Budgie", margin, 15);
+      doc.setTextColor(255,255,255);
+      doc.setFontSize(11); doc.setFont("helvetica","normal");
+      doc.text(`${userName ? userName+"'s " : ""}Budget Report`, margin, 22);
+      doc.setFontSize(9); doc.setTextColor(150,150,170);
+      doc.text(`${periodLabel(fromPeriod||oldest)} — ${periodLabel(toPeriod||newest)}`, W-margin, 22, {align:"right"});
+      y = 38;
+
+      // Summary totals
+      const totalIncome  = filtered.reduce((s,h)=>s+(h.income||0),0);
+      const totalNeeds   = filtered.reduce((s,h)=>s+(h.needs||0),0);
+      const totalWants   = filtered.reduce((s,h)=>s+(h.wants||0),0);
+      const totalSavings = filtered.reduce((s,h)=>s+(h.savings||0),0);
+      const totalSpent   = filtered.reduce((s,h)=>s+(h.total||0),0);
+      const currency     = filtered[0]?.currency || "RON";
+
+      const fmt2 = (n) => n.toLocaleString("ro-RO",{minimumFractionDigits:2,maximumFractionDigits:2})+" "+currency;
+
+      doc.setFillColor(20,20,32);
+      doc.roundedRect(margin,y,W-margin*2,32,3,3,"F");
+      doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont("helvetica","bold");
+      doc.text("Summary", margin+4, y+8);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9);
+      const cols = [[`Income: ${fmt2(totalIncome)}`,margin+4],[`Needs: ${fmt2(totalNeeds)}`,margin+52],[`Wants: ${fmt2(totalWants)}`,margin+98],[`Saved: ${fmt2(totalIncome-totalSpent)}`,margin+144]];
+      cols.forEach(([txt,x])=>{ doc.setTextColor(200,200,220); doc.text(txt,x,y+18); });
+      y += 40;
+
+      // Period rows
+      filtered.forEach((h,i) => {
+        if (y > 260) { doc.addPage(); y = 20; }
+        const income = h.income||0;
+        const over = (h.total||0) > income && income > 0;
+        const savedPct = income>0?Math.max(0,((income-(h.total||0))/income*100)).toFixed(0):"—";
+
+        doc.setFillColor(i%2===0?18:22, i%2===0?18:22, i%2===0?28:32);
+        doc.rect(margin,y,W-margin*2,26,"F");
+
+        // Period name
+        doc.setTextColor(255,255,255); doc.setFontSize(10); doc.setFont("helvetica","bold");
+        doc.text(periodLabel(h.period), margin+4, y+8);
+
+        // Badge
+        doc.setFillColor(over?233:74, over?69:222, over?96:158, 0.3);
+        doc.setTextColor(over?233:74, over?69:222, over?96:158);
+        doc.setFontSize(8);
+        doc.text(over?"Over budget":`${savedPct}% saved`, margin+4, y+16);
+
+        // Numbers
+        doc.setFont("helvetica","normal"); doc.setFontSize(9);
+        [
+          [`Income: ${fmt2(income)}`, margin+50],
+          [`Needs: ${fmt2(h.needs||0)}`, margin+98],
+          [`Wants: ${fmt2(h.wants||0)}`, margin+130],
+          [`Savings: ${fmt2(h.savings||0)}`, margin+162],
+        ].forEach(([txt,x]) => {
+          doc.setTextColor(180,180,200);
+          doc.text(txt, x, y+12);
+        });
+        y += 30;
+      });
+
+      // Footer
+      doc.setFontSize(8); doc.setTextColor(100,100,120);
+      doc.text(`Generated by Budgie · ${new Date().toLocaleDateString()}`, margin, 290);
+
+      doc.save(`budgie-report-${fromPeriod||oldest}-${toPeriod||newest}.pdf`);
+    } catch(e) { alert("PDF export failed: "+e.message); console.error(e); }
+    setExporting(false);
   }
 
   if (plan==="free") return React.createElement("div",{style:{padding:"52px 16px 20px"}},
@@ -1470,6 +1610,40 @@ function HistoryTab({history,plan,onUpgrade,userName}) {
       )
     ),
     React.createElement("div",{style:{padding:"0 16px"}},
+      // Export panel — always visible for Pro/Family
+      history.length>0&&React.createElement("div",{style:{...S.card,marginBottom:16,padding:14}},
+        React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}},"Export"),
+        React.createElement("div",{style:{display:"flex",gap:8,marginBottom:10}},
+          React.createElement("div",{style:{flex:1}},
+            React.createElement("label",{style:{...S.label,marginBottom:4}},"From"),
+            React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},
+              value:fromPeriod, onChange:e=>setFromPeriod(e.target.value)},
+              React.createElement("option",{value:""},"Oldest"),
+              periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
+            )
+          ),
+          React.createElement("div",{style:{flex:1}},
+            React.createElement("label",{style:{...S.label,marginBottom:4}},"To"),
+            React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},
+              value:toPeriod, onChange:e=>setToPeriod(e.target.value)},
+              React.createElement("option",{value:""},"Latest"),
+              periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
+            )
+          )
+        ),
+        React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)",marginBottom:8}},
+          `${filtered.length} period${filtered.length!==1?"s":""} selected`),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          React.createElement("button",{
+            style:{...S.btn("#4ade9e",true),flex:1,color:"#0a0a0f",fontSize:13,padding:"10px"},
+            onClick:exportCSV, disabled:exporting||filtered.length===0},
+            exporting?"Exporting...":"📊 Export CSV"),
+          React.createElement("button",{
+            style:{...S.btn("#0fbcf9",true),flex:1,fontSize:13,padding:"10px"},
+            onClick:exportPDF, disabled:exporting||filtered.length===0},
+            exporting?"Exporting...":"📄 Export PDF")
+        )
+      ),
       history.length===0?React.createElement("div",{style:{...S.card,textAlign:"center",padding:"48px 24px"}},
         React.createElement("div",{style:{fontSize:44,marginBottom:12}},"📊"),
         React.createElement("p",{style:{fontWeight:700,fontSize:16,marginBottom:8}},"No history yet"),
@@ -2238,7 +2412,7 @@ function BudgetApp() {
 
     tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
-    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||""}),
+    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true)}),
 
     React.createElement("nav",{style:S.navBar},
