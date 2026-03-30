@@ -3011,17 +3011,21 @@ function BudgetApp() {
         const budgetDb = await sb.from("budgets", token);
         // RLS policy now returns all accessible budgets (own + shared via budget_members)
         const allAccessible = await budgetDb.select("*", `order=created_at.asc`);
+        console.log("budgets response:", JSON.stringify(allAccessible)?.slice(0,200));
         if (Array.isArray(allAccessible)) {
           // Mark shared budgets (ones where user is not the owner)
           allBudgets = allAccessible.map(b => ({
             ...b,
             _shared: b.owner_id !== userData.id
           }));
+        } else {
+          console.error("budgets not array:", allAccessible);
         }
         setBudgets(allBudgets);
         // Prefer own budgets first, then shared
         const ownBud = allBudgets.find(b => b.owner_id === userData.id);
         bud = ownBud || allBudgets[0] || null;
+        console.log("selected budget:", bud?.name, "total:", allBudgets.length);
       } catch(e) { console.error("budget load error:", e); }
 
       if (!bud) {
