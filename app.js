@@ -3084,17 +3084,18 @@ function BudgetApp() {
     if (plan !== "free") try { await loadHistory(authToken, bud.id); } catch(e) {}
   }
 
-  async function createBudget(name) {
+  async function createBudget(name, extra={}) {
     if (!name || !user) return;
     try {
       const db = await sb.from("budgets", authToken);
       const result = await db.insert({
         owner_id: user.id,
         name,
-        monthly_income: 0,
-        income_currency: budget?.income_currency || "RON",
-        payday: budget?.payday || 1,
-        current_period: getPeriodKey(budget?.payday || 1),
+        monthly_income: extra.monthly_income || 0,
+        income_currency: extra.income_currency || budget?.income_currency || "RON",
+        monthly_income_ron: extra.monthly_income_ron || 0,
+        payday: extra.payday || budget?.payday || 1,
+        current_period: getPeriodKey(extra.payday || budget?.payday || 1),
         settings: { onboardingDone: true },
       });
       const newBud = Array.isArray(result) ? result[0] : null;
@@ -3276,8 +3277,26 @@ function BudgetApp() {
 
   // Budget Picker Modal
   function BudgetPicker() {
-    const [newName, setNewName] = useState("");
+    const [newName, setNewName]         = useState("");
+    const [newPayday, setNewPayday]     = useState("");
+    const [newIncome, setNewIncome]     = useState("");
+    const [newCurrency, setNewCurrency] = useState("RON");
+    const [creating, setCreating]       = useState(false);
     const canCreate = plan !== "free" || budgets.length === 0;
+
+    async function handleCreate() {
+      if (!newName) return;
+      setCreating(true);
+      await createBudget(newName, {
+        payday: parseInt(newPayday)||1,
+        monthly_income: parseFloat(newIncome)||0,
+        income_currency: newCurrency,
+        monthly_income_ron: newCurrency==="RON"?(parseFloat(newIncome)||0):(parseFloat(newIncome)||0)*(DEFAULT_RATES[newCurrency]||1),
+      });
+      setCreating(false);
+      setNewName(""); setNewPayday(""); setNewIncome(""); setNewCurrency("RON");
+    }
+
     return React.createElement("div",{style:{...S.overlay,zIndex:300},onClick:e=>{if(e.target===e.currentTarget)setShowBudgetPicker(false);}},
       React.createElement("div",{style:S.sheet},
         React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}},
@@ -3304,16 +3323,40 @@ function BudgetApp() {
               React.createElement(Icon,{d:IC.trash,size:14}))
           )
         ),
-        // New budget
-        canCreate ? React.createElement("div",{style:{marginTop:16}},
-          React.createElement("label",{style:S.label},"Create new budget"),
-          React.createElement("div",{style:{display:"flex",gap:8}},
-            React.createElement("input",{style:{...S.input,flex:1},placeholder:"e.g. Business, Vacation...",value:newName,
-              onChange:e=>setNewName(e.target.value),
-              onKeyDown:e=>{if(e.key==="Enter"&&newName)createBudget(newName);}}),
-            React.createElement("button",{style:S.btn("#4ade9e"),onClick:()=>createBudget(newName),disabled:!newName},
-              React.createElement(Icon,{d:IC.plus,size:16}))
-          )
+        // New budget — mini onboarding
+        canCreate ? React.createElement("div",{style:{marginTop:16,paddingTop:16,borderTop:"1px solid rgba(255,255,255,0.07)"}},
+          React.createElement("p",{style:{fontWeight:700,fontSize:14,marginBottom:14}},"Create new budget"),
+          // Name
+          React.createElement("div",{style:{marginBottom:12}},
+            React.createElement("label",{style:S.label},"Budget name"),
+            React.createElement("input",{style:S.input,placeholder:"e.g. Business, Vacation...",value:newName,
+              onChange:e=>setNewName(e.target.value)})
+          ),
+          // Payday
+          React.createElement("div",{style:{marginBottom:12}},
+            React.createElement("label",{style:S.label},"Payday (day of month)"),
+            React.createElement("input",{style:S.input,type:"number",min:"1",max:"31",placeholder:"e.g. 5",value:newPayday,
+              onChange:e=>setNewPayday(e.target.value)})
+          ),
+          // Currency
+          React.createElement("div",{style:{marginBottom:12}},
+            React.createElement("label",{style:S.label},"Currency"),
+            React.createElement("div",{style:{display:"flex",gap:8}},
+              CURRENCIES.map(c=>React.createElement(CurPill,{key:c,label:c,active:newCurrency===c,
+                color:newCurrency===c?"#e94560":CUR_COLOR[c],onClick:()=>setNewCurrency(c)}))
+            )
+          ),
+          // Income
+          React.createElement("div",{style:{marginBottom:16}},
+            React.createElement("label",{style:S.label},"Monthly income"),
+            React.createElement("input",{style:S.input,type:"number",placeholder:"0",value:newIncome,
+              onChange:e=>setNewIncome(e.target.value)})
+          ),
+          React.createElement("button",{
+            style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%",opacity:newName?1:0.4},
+            disabled:!newName||creating,
+            onClick:handleCreate},
+            creating?"Creating...":"Create Budget")
         ) : React.createElement("div",{style:{...S.card,marginTop:16,background:"rgba(74,222,158,0.05)",border:"1px solid rgba(74,222,158,0.15)",textAlign:"center",padding:16}},
           React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.5)",marginBottom:8}},"Multiple budgets requires Pro or Family"),
           React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f"},onClick:()=>{setShowBudgetPicker(false);setShowUpgrade(true);}},
