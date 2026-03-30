@@ -1264,7 +1264,7 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           e("div",{style:{display:"flex",gap:8,alignItems:"center"}},
             e("input",{style:{...S.input,flex:1},type:"number",value:form.amount,onChange:ev=>setForm(f=>({...f,amount:ev.target.value})),placeholder:"0.00"}),
             e("div",{style:{display:"flex",gap:4}},
-              CURRENCIES.map(c=>e(CurPill,{key:c,label:c,active:form.currency===c,color:CUR_COLOR[c],onClick:()=>setForm(f=>({...f,currency:c,customRate:""}))}))
+              CURRENCIES.map(c=>e(CurPill,{key:c,label:c,active:form.currency===c,color:form.currency===c?"#e94560":CUR_COLOR[c],onClick:()=>setForm(f=>({...f,currency:c,customRate:""}))}))
             )
           )
         ),
@@ -1338,8 +1338,8 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
                 onClick:()=>setScanModeInfo(false)},"Got it")
             ),
             e("div",{style:{display:"flex",gap:8,marginBottom:12}},
-              e("button",{style:S.pill(scanMode==="simple","#43A047"),onClick:()=>setScanMode("simple")},"Simple (total only)"),
-              e("button",{style:S.pill(scanMode==="detailed","#1E88E5"),onClick:()=>setScanMode("detailed")},"Detailed (line items)")
+              e("button",{style:S.pill(scanMode==="simple","#e94560"),onClick:()=>setScanMode("simple")},"Simple (total only)"),
+              e("button",{style:S.pill(scanMode==="detailed","#e94560"),onClick:()=>setScanMode("detailed")},"Detailed (line items)")
             )
           ),
           // Upload / Camera buttons
@@ -1457,20 +1457,16 @@ function CategoryTooltip({cat, onClose}) {
       style:{background:"#13131f",borderRadius:20,padding:"24px 20px",
         width:"100%",maxWidth:340,border:`1px solid rgba(${rgb(info.color)},0.3)`},
       onClick:e=>e.stopPropagation()},
-      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
-          React.createElement("div",{style:{width:40,height:40,borderRadius:12,
-            background:`rgba(${rgb(info.color)},0.12)`,
-            display:"flex",alignItems:"center",justifyContent:"center"}},
-            React.createElement(Icon,{d:info.icon,size:20,stroke:info.color})
-          ),
-          React.createElement("div",null,
-            React.createElement("p",{style:{fontWeight:900,fontSize:18,color:info.color}},info.name),
-            React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)"}},"Budget: ",info.pct," of income")
-          )
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:16}},
+        React.createElement("div",{style:{width:40,height:40,borderRadius:12,
+          background:`rgba(${rgb(info.color)},0.12)`,
+          display:"flex",alignItems:"center",justifyContent:"center"}},
+          React.createElement(Icon,{d:info.icon,size:20,stroke:info.color})
         ),
-        React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:onClose},
-          React.createElement(Icon,{d:IC.x,size:20}))
+        React.createElement("div",null,
+          React.createElement("p",{style:{fontWeight:900,fontSize:18,color:info.color}},info.name),
+          React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)"}},"Budget: ",info.pct," of income")
+        )
       ),
       React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.6)",marginBottom:14,lineHeight:1.6}},info.desc),
       React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.3)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:8}},"Examples"),
@@ -1513,21 +1509,10 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             React.createElement(Icon,{d:IC.cog,size:13})," Rates")
         )
       ),
-      editingIncome ? React.createElement("input",{type:"number",value:incomeInput,
-        onChange:e=>setIncomeInput(e.target.value),
-        style:{...S.input,fontSize:48,fontWeight:900,padding:"4px 0",background:"none",border:"none",borderBottom:"2px solid #e94560",borderRadius:0,marginBottom:12},
-        onBlur:()=>{
-          const val=parseFloat(incomeInput)||0;
-          const ronVal=val>0?toRON(val,incomeCurrency,rates):0;
-          updateBudget({monthly_income:val,monthly_income_ron:ronVal});
-          setEditingIncome(false);
-        },
-        onKeyDown:e=>{if(e.key==="Enter"){const val=parseFloat(incomeInput)||0;const ronVal=val>0?toRON(val,incomeCurrency,rates):0;updateBudget({monthly_income:val,monthly_income_ron:ronVal});setEditingIncome(false);}}
-      }) : React.createElement("div",{style:{display:"flex",alignItems:"baseline",gap:8,cursor:"pointer",marginBottom:12},onClick:()=>{setIncomeInput(budget?.monthly_income||"");setEditingIncome(true);}},
+      false ? null : React.createElement("div",{style:{display:"flex",alignItems:"baseline",gap:8,marginBottom:12}},
         React.createElement("span",{style:{fontSize:52,fontWeight:900,letterSpacing:"-2px"}}),
         income>0?income.toLocaleString("ro-RO"):"—",
-        React.createElement("span",{style:{fontSize:24,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym),
-        React.createElement(Icon,{d:IC.edit,size:14,stroke:"rgba(255,255,255,0.25)"})
+        React.createElement("span",{style:{fontSize:24,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym)
       ),
 
     ),
@@ -1805,7 +1790,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
     React.createElement("div",{style:{padding:"0 16px"}},
       React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12}},
         React.createElement("button",{style:S.pill(activeType==="recurring"),onClick:()=>{setActiveType("recurring");setSearch("");setFilterCat("");setSortBy("date");}},"Fixed"),
-        React.createElement("button",{style:S.pill(activeType==="daily","#1E88E5"),onClick:()=>{setActiveType("daily");setSearch("");setFilterCat("");setSortBy("date");}},"Variable")
+        React.createElement("button",{style:S.pill(activeType==="daily","#e94560"),onClick:()=>{setActiveType("daily");setSearch("");setFilterCat("");setSortBy("date");}},"Variable")
       ),
       React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12}},
         React.createElement("div",{style:{flex:1,position:"relative",display:"flex",alignItems:"center"}},
@@ -2454,7 +2439,7 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
             React.createElement("p",{style:{...S.label,marginBottom:8}},"Sort by"),
             React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
               [["date","Date ↓"],["amount_desc","Amount ↓"],["amount_asc","Amount ↑"]].map(([val,label])=>
-                React.createElement("button",{key:val,style:S.pill(expSortBy===val,"#1E88E5"),onClick:()=>setExpSortBy(val)},label)
+                React.createElement("button",{key:val,style:S.pill(expSortBy===val,"#e94560"),onClick:()=>setExpSortBy(val)},label)
               )
             ),
             hasExpFilters&&React.createElement("button",{style:{...S.ghost,width:"100%",marginTop:10,fontSize:12,padding:"8px",color:"rgba(255,255,255,0.4)"},
@@ -2697,7 +2682,7 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
           React.createElement("div",{style:{width:28,height:28,borderRadius:8,background:"rgba(74,222,158,0.12)",display:"flex",alignItems:"center",justifyContent:"center"}},React.createElement(Icon,{d:IC.bot,size:16,stroke:"#4ade9e"})),
           React.createElement("p",{style:{fontWeight:700,fontSize:14}},"AI Scanner Credits")
         ),
-        React.createElement("span",{style:{fontSize:22,fontWeight:900,color:aiCredits>5?"#4ade9e":aiCredits>0?"#1E88E5":"#e94560"}},
+        React.createElement("span",{style:{fontSize:22,fontWeight:900,color:aiCredits>0?"#4ade9e":"#e94560"}},
           aiCredits ?? "...")
       ),
       React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:12}},
@@ -2727,15 +2712,20 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
           onClick:()=>onRequestPush()},"Enable")
       ),
       [
-        {key:"budget_alerts", label:"Budget alerts (80%)", icon:IC.alert},
-        {key:"payday_reset",  label:"Payday reset", icon:IC.wallet},
-        {key:"daily_reminder",label:"Daily reminder", icon:IC.clock},
-        {key:"weekly_summary",label:"Weekly summary", icon:IC.history},
+        {key:"budget_alerts", label:"Budget alerts", icon:IC.alert,   desc:"Get notified when a category reaches 80% of its budget"},
+        {key:"payday_reset",  label:"Payday reset",  icon:IC.wallet,  desc:"Get notified when your budget resets at the start of a new period"},
+        {key:"daily_reminder",label:"Daily reminder",icon:IC.clock,   desc:"A daily reminder in the evening to log your expenses"},
+        {key:"weekly_summary",label:"Weekly summary",icon:IC.history, desc:"A weekly overview of your spending sent every Sunday"},
       ].map(item =>
-        React.createElement("div",{key:item.key,style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
-          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-            item.icon && React.createElement(Icon,{d:item.icon,size:14,stroke:"rgba(255,255,255,0.5)"}),
-            React.createElement("span",{style:{fontSize:13,color:"rgba(255,255,255,0.6)"}},item.label)
+        React.createElement("div",{key:item.key,style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}},
+          React.createElement("div",{style:{display:"flex",alignItems:"flex-start",gap:8,flex:1,marginRight:12}},
+            React.createElement("div",{style:{marginTop:2,flexShrink:0}},
+              item.icon && React.createElement(Icon,{d:item.icon,size:14,stroke:"rgba(255,255,255,0.5)"})
+            ),
+            React.createElement("div",null,
+              React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.8)",fontWeight:600,marginBottom:2}},item.label),
+              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)",lineHeight:1.4}},item.desc)
+            )
           ),
           React.createElement("div",{
             style:{width:40,height:22,borderRadius:99,cursor:"pointer",position:"relative",transition:"background 0.2s",
