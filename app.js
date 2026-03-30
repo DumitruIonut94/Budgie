@@ -1696,9 +1696,36 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
   const list=expenses.filter(e=>e.type===activeType);
 
   function remove(id,type) {
-    // Mark as deleted (will be removed from DB in parent)
     onOpenEdit({id,_delete:true,type});
   }
+
+  // Group expenses by date label
+  function groupByDate(exps) {
+    const today     = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+    const lastWeek  = new Date(today); lastWeek.setDate(today.getDate()-7);
+    const lastMonth = new Date(today); lastMonth.setDate(today.getDate()-30);
+
+    const groups = {};
+    exps.forEach(exp => {
+      const d = exp.expense_date ? new Date(exp.expense_date+"T00:00:00") : null;
+      let label;
+      if (!d) { label = "Unknown date"; }
+      else if (d >= today)     { label = "Today"; }
+      else if (d >= yesterday) { label = "Yesterday"; }
+      else if (d >= lastWeek)  { label = "This week"; }
+      else if (d >= lastMonth) { label = "This month"; }
+      else                     { label = "Older"; }
+      if (!groups[label]) groups[label] = [];
+      groups[label].push(exp);
+    });
+
+    const order = ["Today","Yesterday","This week","This month","Older","Unknown date"];
+    return order.filter(l => groups[l]).map(l => ({ label: l, items: groups[l] }));
+  }
+
+  // For fixed expenses — no date grouping (they're permanent)
+  const grouped = activeType === "daily" ? groupByDate(list) : null;
 
   function ExpenseRow({exp}) {
     const cc=CAT_COLOR[exp.category]||"#f0f0f5";
@@ -1708,7 +1735,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
     const showCV=ec!==incomeCurrency;
     return React.createElement("div",{
       onClick:()=>onOpenEdit(exp),
-      style:{...S.card,marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",transition:"background 0.15s"},
+      style:{...S.card,marginBottom:8,display:"flex",alignItems:"center",gap:12,cursor:"pointer",transition:"background 0.15s"},
       onMouseEnter:e=>e.currentTarget.style.background="rgba(255,255,255,0.07)",
       onMouseLeave:e=>e.currentTarget.style.background="rgba(255,255,255,0.04)"},
       React.createElement("div",{style:{width:42,height:42,borderRadius:12,background:`rgba(${rgb(cc)},0.15)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
@@ -1717,7 +1744,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
         React.createElement("p",{style:{fontWeight:700,fontSize:14,marginBottom:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},exp.name),
         React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}},
           React.createElement("span",{style:{fontSize:11,padding:"2px 7px",borderRadius:99,background:`rgba(${rgb(cc)},0.15)`,color:cc,fontWeight:600}},exp.subcat||exp.category),
-          exp.expense_date&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},exp.expense_date),
+          exp.expense_date&&activeType==="recurring"&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},exp.expense_date),
           exp.custom_rate&&React.createElement("span",{style:{fontSize:10,color:"#1E88E5"}},"custom rate")
         )
       ),
@@ -1755,12 +1782,27 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
         React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.pin,size:12,stroke:"rgba(255,255,255,0.35)"}), " Fixed expenses are always counted in your budget, every period.")),
       activeType==="daily"&&React.createElement("div",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:14,padding:"8px 12px",background:"rgba(255,255,255,0.03)",borderRadius:10,lineHeight:1.5}},
         React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.calendar,size:12,stroke:"rgba(255,255,255,0.35)"}), " "),React.createElement("strong",{style:{color:"rgba(255,255,255,0.5)"}},monthLabel)," — variable expenses reset when your next salary arrives."),
-      list.length===0?React.createElement("div",{style:{...S.card,textAlign:"center",padding:"36px 20px"}},
-        React.createElement("div",{style:{fontSize:36,marginBottom:10}},null),
+
+      list.length===0 ? React.createElement("div",{style:{...S.card,textAlign:"center",padding:"36px 20px"}},
         React.createElement("p",{style:{fontWeight:700}},`No ${activeType==="recurring"?"fixed":"variable"} expenses yet`),
         React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginTop:6}},
           activeType==="recurring"?"Add fixed costs like rent, subscriptions, utilities":"Add today's purchases or scan a receipt")
-      ):list.map(exp=>React.createElement(ExpenseRow,{key:exp.id,exp})),
+      ) : activeType==="recurring" ?
+        // Fixed — no grouping
+        list.map(exp=>React.createElement(ExpenseRow,{key:exp.id,exp}))
+      :
+        // Variable — grouped by date
+        grouped.map(group=>
+          React.createElement(React.Fragment,{key:group.label},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8,marginTop:4}},
+              React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.35)",textTransform:"uppercase",letterSpacing:"0.8px",whiteSpace:"nowrap"}},group.label),
+              React.createElement("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.06)"}})
+            ),
+            group.items.map(exp=>React.createElement(ExpenseRow,{key:exp.id,exp})),
+            React.createElement("div",{style:{marginBottom:8}})
+          )
+        ),
+
       React.createElement("button",{style:{...S.card,width:"100%",border:"2px dashed rgba(255,255,255,0.1)",background:"none",color:"rgba(255,255,255,0.3)",cursor:"pointer",textAlign:"center",marginTop:8,padding:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8},
         onClick:()=>onOpenAdd(activeType)},
         React.createElement(Icon,{d:IC.plus,size:16})," Add ",activeType==="recurring"?"fixed":"variable"," expense")
