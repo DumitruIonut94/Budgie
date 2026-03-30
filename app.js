@@ -2320,13 +2320,17 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
           React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)"}},user?.email)
         )
       ),
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:10,background:`rgba(${rgb(planColor==="rgba(255,255,255,0.4)"?"255,255,255":"74,222,158")},0.08)`}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:10,background:`rgba(${rgb(planColor==="rgba(255,255,255,0.4)"?"255,255,255":"74,222,158")},0.08)`,marginBottom:profile?.plan!=="family"?12:0}},
         React.createElement(Icon,{d:IC.crown,size:16,stroke:planColor}),
         React.createElement("span",{style:{fontSize:13,fontWeight:700,color:planColor}},
           profile?.plan==="pro"?"Budgie Pro":profile?.plan==="family"?"Budgie Family":"Free Plan"),
         profile?.plan!=="free"&&profile?.plan_expires_at&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginLeft:"auto"}},
           "Renews ",new Date(profile.plan_expires_at).toLocaleDateString())
-      )
+      ),
+      profile?.plan==="free"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%"},onClick:onUpgrade},
+        React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.zap,size:14,stroke:"#0a0a0f"}), " Upgrade to Pro — €2.99/mo")),
+      profile?.plan==="pro"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%"},onClick:onUpgrade},
+        React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.family,size:14,stroke:"#0a0a0f"}), " Switch to Family Plan"))
     ),
 
     // Family members section
@@ -2392,10 +2396,6 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
 
     // Actions
     React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
-      profile?.plan==="free"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f"},onClick:onUpgrade},
-        React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.zap,size:14,stroke:"#0a0a0f"}), " Upgrade to Pro — €2.99/mo")),
-      profile?.plan==="pro"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f"},onClick:onUpgrade},
-        React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.family,size:14,stroke:"#0a0a0f"}), " Switch to Family Plan")),
       profile?.plan!=="free"&&React.createElement("button",{style:{...S.ghost,width:"100%",textAlign:"left"},onClick:handlePortal},
         "Manage Subscription & Billing"),
       React.createElement("button",{style:{...S.ghost,width:"100%",textAlign:"left",color:"#e94560",borderColor:"rgba(233,69,96,0.2)"},onClick:onSignOut},
