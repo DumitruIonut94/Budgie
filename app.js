@@ -2504,14 +2504,20 @@ function FamilyMembers({budget, token, plan, isOwner}) {
 
   async function loadMembers() {
     try {
+      // ownerId is always the budget owner, regardless of who is viewing
+      const ownerId = budget.owner_id;
+      if (!ownerId) { console.error("No owner_id on budget"); return; }
       const res = await sb.callFunction("get-family-members", token, {
-        ownerId: budget.owner_id,
+        ownerId: ownerId,
         budgetId: null,
       });
+      console.log("family members response:", res);
       if (res.owner && res.members !== undefined) {
         const ownerRow = { user_id: res.owner.id, role: "owner", name: res.owner.name || "Owner" };
         const memberRows = res.members.map(m => ({ user_id: m.user_id, role: "member", name: m.name }));
         setMembers([ownerRow, ...memberRows]);
+      } else {
+        console.error("Unexpected response:", res);
       }
     } catch(e) { console.error("loadMembers error:", e); }
   }
