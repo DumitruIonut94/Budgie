@@ -232,7 +232,7 @@ const CAT_COLOR = { needs: "#e94560", wants: "#f5a623", savings: "#0fbcf9" };
 // ─────────────────────────────────────────────────────────────────────────────
 // Push Notifications
 // ─────────────────────────────────────────────────────────────────────────────
-const VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY"; // Replace with your VAPID public key
+const VAPID_PUBLIC_KEY = "BNeh1VhFBrr5kuWUx4rcJ7BPde3BE1XF8Us728enJ74M6TIpnQOMS4WHtEUuBgUJfRrWW_-oqLpC06wHMOBPDj0"; // Replace with your VAPID public key
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
