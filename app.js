@@ -1515,7 +1515,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
       ),
       editingIncome ? React.createElement("input",{type:"number",value:incomeInput,
         onChange:e=>setIncomeInput(e.target.value),
-        style:{...S.input,fontSize:34,fontWeight:800,padding:"4px 0",background:"none",border:"none",borderBottom:"2px solid #e94560",borderRadius:0,marginBottom:12},
+        style:{...S.input,fontSize:48,fontWeight:900,padding:"4px 0",background:"none",border:"none",borderBottom:"2px solid #e94560",borderRadius:0,marginBottom:12},
         onBlur:()=>{
           const val=parseFloat(incomeInput)||0;
           const ronVal=val>0?toRON(val,incomeCurrency,rates):0;
@@ -1524,24 +1524,12 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
         },
         onKeyDown:e=>{if(e.key==="Enter"){const val=parseFloat(incomeInput)||0;const ronVal=val>0?toRON(val,incomeCurrency,rates):0;updateBudget({monthly_income:val,monthly_income_ron:ronVal});setEditingIncome(false);}}
       }) : React.createElement("div",{style:{display:"flex",alignItems:"baseline",gap:8,cursor:"pointer",marginBottom:12},onClick:()=>{setIncomeInput(budget?.monthly_income||"");setEditingIncome(true);}},
-        React.createElement("span",{style:{fontSize:38,fontWeight:800,letterSpacing:"-1px"}}),
+        React.createElement("span",{style:{fontSize:52,fontWeight:900,letterSpacing:"-2px"}}),
         income>0?income.toLocaleString("ro-RO"):"—",
-        React.createElement("span",{style:{fontSize:18,fontWeight:600,color:"rgba(255,255,255,0.5)"}},sym),
+        React.createElement("span",{style:{fontSize:24,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym),
         React.createElement(Icon,{d:IC.edit,size:14,stroke:"rgba(255,255,255,0.25)"})
       ),
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-        React.createElement("span",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",fontWeight:600}},"Currency:"),
-        React.createElement("div",{style:{display:"flex",gap:5}},
-          CURRENCIES.map(c=>React.createElement(CurPill,{key:c,label:c,active:incomeCurrency===c,color:CUR_COLOR[c],
-            onClick:()=>{
-              if(c===incomeCurrency)return;
-              const baseRON=parseFloat(budget?.monthly_income_ron)||parseFloat(budget?.monthly_income)||0;
-              const converted=baseRON>0?(c==="RON"?baseRON:fromRON(baseRON,c,rates)):0;
-              updateBudget({income_currency:c,monthly_income:parseFloat(converted.toFixed(2))});
-            }
-          }))
-        )
-      )
+
     ),
 
     React.createElement("div",{style:{padding:"0 16px"}},
@@ -1633,7 +1621,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             }
 
             return insights.slice(0,3).map((ins,i) =>
-              React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<insights.slice(0,3).length-1?10:0,padding:"8px 10px",borderRadius:10,background:`rgba(${rgb(ins.color)},0.06)`}},
+              React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<insights.slice(0,3).length-1?10:0,padding:"4px 0"}},
                 React.createElement("div",{style:{width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
                 ins.emoji==="alert"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#e94560"}):
                 ins.emoji==="warn"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#1E88E5"}):
@@ -2492,7 +2480,7 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
                   React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},exp.expense_date)
                 )
               ),
-              React.createElement("p",{style:{fontWeight:800,fontSize:13,color:cc,flexShrink:0}},fmt(parseFloat(exp.amount),ec))
+              React.createElement("p",{style:{fontWeight:800,fontSize:13,color:"#f0f0f5",flexShrink:0}},fmt(parseFloat(exp.amount),ec))
             );
           })
         ),
@@ -2609,7 +2597,59 @@ function FamilyMembers({budget, token, plan}) {
   );
 }
 
-function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onRequestPush,notifPrefs,onToggleNotif}) {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Currency & Income Settings (shown in Account tab)
+// ─────────────────────────────────────────────────────────────────────────────
+function CurrencySettings({budget, token, rates, updateBudget}) {
+  const [editing, setEditing] = useState(false);
+  const [newCurrency, setNewCurrency] = useState(budget?.income_currency||"RON");
+  const [newIncome, setNewIncome]     = useState(budget?.monthly_income||"");
+
+  if (!budget) return null;
+
+  function save() {
+    const val = parseFloat(newIncome)||0;
+    const ronVal = newCurrency==="RON" ? val : val*(DEFAULT_RATES[newCurrency]||1);
+    updateBudget({income_currency:newCurrency, monthly_income:val, monthly_income_ron:ronVal});
+    setEditing(false);
+  }
+
+  const cur = budget.income_currency||"RON";
+  const sym = CUR_SYM[cur]||cur;
+
+  return React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:editing?14:0}},
+      React.createElement("div",null,
+        React.createElement("p",{style:{fontWeight:700,fontSize:14}},"Income & Currency"),
+        !editing&&React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:2}},
+          `${(budget.monthly_income||0).toLocaleString("ro-RO")} ${sym}/month`)
+      ),
+      React.createElement("button",{
+        style:{...S.ghost,fontSize:12,padding:"6px 12px"},
+        onClick:()=>{
+          if(editing){save();}
+          else{setNewCurrency(cur);setNewIncome(budget.monthly_income||"");setEditing(true);}
+        }},editing?"Save":"Edit")
+    ),
+    editing&&React.createElement("div",null,
+      React.createElement("div",{style:{marginBottom:12}},
+        React.createElement("label",{style:S.label},"Currency"),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          CURRENCIES.map(c=>React.createElement(CurPill,{key:c,label:c,active:newCurrency===c,color:CUR_COLOR[c],onClick:()=>setNewCurrency(c)}))
+        )
+      ),
+      React.createElement("div",null,
+        React.createElement("label",{style:S.label},"Monthly income"),
+        React.createElement("input",{style:{...S.input,fontSize:20,fontWeight:800,textAlign:"center"},
+          type:"number",value:newIncome,onChange:e=>setNewIncome(e.target.value),
+          placeholder:"0",onKeyDown:e=>{if(e.key==="Enter")save();}})
+      )
+    )
+  );
+}
+
+function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onRequestPush,notifPrefs,onToggleNotif,onUpdateBudget,rates}) {
   function handlePortal() {
     window.location.href = "https://billing.stripe.com/p/login/test_fZu14n7ht2aI76ycdWbsc00";
   }
@@ -2643,6 +2683,9 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
       profile?.plan==="pro"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%"},onClick:onUpgrade},
         React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.family,size:14,stroke:"#0a0a0f"}), " Switch to Family Plan"))
     ),
+
+    // Currency & Income settings
+    React.createElement(CurrencySettings,{budget,token,rates,updateBudget:onUpdateBudget}),
 
     // Family members section
     profile?.plan==="family" && React.createElement(FamilyMembers,{budget,token,plan:profile?.plan}),
@@ -3330,7 +3373,7 @@ function BudgetApp() {
     tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab,onCatInfo:setActiveCatTooltip}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken}),
-    tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif}),
+    tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif,onUpdateBudget:updateBudget,rates}),
 
     React.createElement("nav",{style:S.navBar},
       [{id:"home",label:"Overview",icon:IC.home},{id:"expenses",label:"Expenses",icon:IC.receipt},{id:"history",label:"History",icon:IC.history},{id:"account",label:"Account",icon:IC.users}].map(item=>
