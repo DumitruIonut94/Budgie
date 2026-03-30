@@ -232,7 +232,7 @@ const CAT_COLOR = { needs: "#e94560", wants: "#f5a623", savings: "#0fbcf9" };
 // ─────────────────────────────────────────────────────────────────────────────
 // Push Notifications
 // ─────────────────────────────────────────────────────────────────────────────
-const VAPID_PUBLIC_KEY = "BNeh1VhFBrr5kuWUx4rcJ7BPde3BE1XF8Us728enJ74M6TIpnQOMS4WHtEUuBgUJfRrWW_-oqLpC06wHMOBPDj0"; // Replace with your VAPID public key
+const VAPID_PUBLIC_KEY = "BNeh1VhFBrr5kuWUx4rcJ7BPde3BE1XF8Us728enJ74M6TIpnQOMS4WHtEUuBgUJfRrWW_-oqLpC06wHMOBPDj0";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
@@ -1467,7 +1467,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             const ec = exp.currency || incomeCurrency;
             return React.createElement("div",{key:exp.id||i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<3?10:0}},
               React.createElement("div",{style:{width:34,height:34,borderRadius:10,background:`rgba(${rgb(cc)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
-                React.createElement(Icon,{d:exp.type==="recurring"?IC.repeat:IC.receipt,size:15,stroke:cc})
+                React.createElement(Icon,{d:exp.type==="recurring"?IC.pin:IC.receipt,size:15,stroke:cc})
               ),
               React.createElement("div",{style:{flex:1,minWidth:0}},
                 React.createElement("p",{style:{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},exp.name),
