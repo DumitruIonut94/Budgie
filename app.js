@@ -3510,8 +3510,8 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
                 b.income_currency||"RON"," · ",b.payday?"Payday "+b.payday:"No payday set")
             ),
             b.id===budget?.id && React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}),
-            // Share button — only for own budgets owned by current user
-            b.owner_id===user?.id && plan==="family" && !b._shared && React.createElement("button",{
+            // Share button — only for owners (not members)
+            b.owner_id===user?.id && plan==="family" && !b._shared && (!profile?.family_role || profile?.family_role==="owner") && React.createElement("button",{
               onClick:e=>{e.stopPropagation();setShareBudgetId(b.id);},
               style:{background:"none",border:"none",cursor:"pointer",padding:4,
                 color:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"},
@@ -3614,7 +3614,7 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
   return React.createElement("div",{style:S.app},
     React.createElement("style",null,globalStyles),
 
-    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab,onCatInfo:setActiveCatTooltip,onShareBudget:()=>setShareBudgetId(budget?.id)}),
+    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab,onCatInfo:setActiveCatTooltip,onShareBudget:(!profile?.family_role||profile?.family_role==="owner")?()=>setShareBudgetId(budget?.id):null}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif,onUpdateBudget:updateBudget,rates}),
