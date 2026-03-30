@@ -1207,22 +1207,84 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           e("h3",{style:{fontWeight:800,fontSize:18}},isEditing?"Edit Expense":`Add ${type==="recurring"?"Fixed":"Variable"} Expense`),
           e("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:onClose},e(Icon,{d:IC.x,size:20}))
         ),
+        !isEditing&&e("input",{ref:fileRef,type:"file",accept:"image/*,application/pdf",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
+        !isEditing&&e("input",{ref:cameraRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
+        // Budget selector — only show if user has multiple budgets
+        budgets && budgets.length > 1 && !isEditing && e("div",{style:{marginBottom:14}},
+          e("label",{style:S.label},"Add to budget"),
+          e("select",{style:S.input,value:form.targetBudgetId||activeBudgetId,
+            onChange:ev=>setForm(f=>({...f,targetBudgetId:ev.target.value}))},
+            budgets.map(b=>e("option",{key:b.id,value:b.id},b.name))
+          )
+        ),
+
+        // 1. Name
+        e("div",{style:{marginBottom:14}},
+          e("label",{style:S.label},"Name"),
+          e("input",{style:S.input,value:form.name,onChange:ev=>setForm(f=>({...f,name:ev.target.value})),placeholder:"e.g. Netflix, Kaufland..."})
+        ),
+        // 2. Category
+        e("div",{style:{marginBottom:14}},
+          e("label",{style:S.label},"Category"),
+          e("div",{style:{display:"flex",gap:8}},
+            ["needs","wants","savings"].map(c=>e("button",{key:c,style:S.pill(form.category===c,CAT_COLOR[c]),onClick:()=>setForm(f=>({...f,category:c}))},c.charAt(0).toUpperCase()+c.slice(1)))
+          )
+        ),
+        // 3. Amount & Currency
+        e("div",{style:{marginBottom:6}},
+          e("label",{style:S.label},"Amount & Currency"),
+          e("div",{style:{display:"flex",gap:8,alignItems:"center"}},
+            e("input",{style:{...S.input,flex:1},type:"number",value:form.amount,onChange:ev=>setForm(f=>({...f,amount:ev.target.value})),placeholder:"0.00"}),
+            e("div",{style:{display:"flex",gap:4}},
+              CURRENCIES.map(c=>e(CurPill,{key:c,label:c,active:form.currency===c,color:CUR_COLOR[c],onClick:()=>setForm(f=>({...f,currency:c,customRate:""}))}))
+            )
+          )
+        ),
+        needsRate&&e("div",{style:{...S.card,padding:"12px 14px",marginBottom:14,background:"rgba(255,255,255,0.025)",marginTop:8}},
+          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
+            e("label",{style:{...S.label,marginBottom:0}},"Rate: ",rateLabel),
+            e("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},"blank = default")
+          ),
+          e("input",{style:{...S.input,fontSize:14,padding:"9px 12px"},type:"number",step:"0.0001",
+            placeholder:`default: ${ratePlaceholder}`,value:form.customRate,
+            onChange:ev=>setForm(f=>({...f,customRate:ev.target.value}))}),
+          convertedPreview!==null&&form.amount&&e("p",{style:{fontSize:12,color:"#43A047",marginTop:7}},
+            "≈ ",fmt(convertedPreview,incomeCurrency)," ",
+            form.customRate?e("span",{style:{color:"#1E88E5"}},"· custom rate"):e("span",{style:{color:"rgba(255,255,255,0.3)"}},"· default rate")
+          )
+        ),
+        // 4. Comments
+        e("div",{style:{marginBottom:20}},
+          e("label",{style:S.label},"Comments"),
+          e("input",{style:S.input,value:form.subcat,onChange:ev=>setForm(f=>({...f,subcat:ev.target.value})),placeholder:"Optional note..."})
+        ),
+        e("button",{style:S.btn("#e94560",true),onClick:()=>onAdd(type)},isEditing?"Save Changes":"Add Expense"),
+
+        // ── OR using the AI ─────────────────────────────────────────────────
         !isEditing&&e(React.Fragment,null,
+          e("div",{style:{display:"flex",alignItems:"center",gap:10,margin:"20px 0 16px"}},
+            e("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.07)"}}),
+            e("span",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"0.5px"}},"OR USING THE AI"),
+            e("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.07)"}})
+          ),
           // Credits indicator
-          aiCredits !== undefined && e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10,padding:"8px 12px",borderRadius:10,
+          aiCredits !== undefined && e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,padding:"8px 12px",borderRadius:10,
             background:aiCredits>5?"rgba(74,222,158,0.06)":aiCredits>0?"rgba(245,166,35,0.06)":"rgba(233,69,96,0.06)",
             border:`1px solid ${aiCredits>5?"rgba(74,222,158,0.2)":aiCredits>0?"rgba(245,166,35,0.2)":"rgba(233,69,96,0.2)"}`}},
-            e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.5)"}},
-              aiCredits>0?`🤖 ${aiCredits} scan credit${aiCredits===1?"":"s"} remaining`:"🤖 No scan credits remaining"),
+            e("div",{style:{display:"flex",alignItems:"center",gap:6}},
+              e(Icon,{d:IC.bot,size:14,stroke:aiCredits>0?"rgba(255,255,255,0.5)":"#e94560"}),
+              e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.5)"}},
+                aiCredits>0?`${aiCredits} scan credit${aiCredits===1?"":"s"} remaining`:"No scan credits remaining")
+            ),
             aiCredits<=0&&e("button",{style:{fontSize:11,color:"#4ade9e",background:"none",border:"none",cursor:"pointer",fontWeight:700},
               onClick:onBuyCredits},"Buy credits →")
           ),
-          // Scan mode selector with info tooltips
+          // Scan mode selector
           aiCredits>0&&e("div",{style:{marginBottom:12}},
             e("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:8}},
               e("label",{style:{...S.label,marginBottom:0}},"Scan mode"),
               e("button",{
-                style:{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",padding:2,display:"flex"},
+                style:{background:"none",border:"none",cursor:"pointer",padding:2,display:"flex"},
                 onClick:()=>setScanModeInfo(!scanModeInfo)},
                 e(Icon,{d:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01",size:15,stroke:"rgba(255,255,255,0.4)"})
               )
@@ -1247,74 +1309,21 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
               e("button",{style:{...S.ghost,width:"100%",marginTop:10,fontSize:12,padding:"8px"},
                 onClick:()=>setScanModeInfo(false)},"Got it")
             ),
-            e("div",{style:{display:"flex",gap:8}},
+            e("div",{style:{display:"flex",gap:8,marginBottom:12}},
               e("button",{style:S.pill(scanMode==="simple","#43A047"),onClick:()=>setScanMode("simple")},"Simple (total only)"),
               e("button",{style:S.pill(scanMode==="detailed","#1E88E5"),onClick:()=>setScanMode("detailed")},"Detailed (line items)")
             )
           ),
-          e("div",{style:{display:"flex",gap:8,marginBottom:18,opacity:aiCredits>0?1:0.4,pointerEvents:aiCredits>0?"auto":"none"}},
-            e("button",{style:{flex:1,...S.card,border:"1px solid rgba(15,188,249,0.3)",background:"rgba(15,188,249,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>fileRef.current?.click()},
-              e(Icon,{d:IC.receipt,size:15,stroke:"#43A047"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#43A047"}},"Upload Receipt / PDF")),
-            e("button",{style:{flex:1,...S.card,border:"1px solid rgba(245,166,35,0.3)",background:"rgba(245,166,35,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>cameraRef.current?.click()},
-              e(Icon,{d:IC.camera,size:15,stroke:"#1E88E5"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#1E88E5"}},"Camera"))
-          ),
-          e("input",{ref:fileRef,type:"file",accept:"image/*,application/pdf",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
-          e("input",{ref:cameraRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
-          e("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:18}},
-            e("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.07)"}}),
-            e("span",{style:{fontSize:11,color:"rgba(255,255,255,0.2)",fontWeight:600}},"OR MANUALLY"),
-            e("div",{style:{flex:1,height:1,background:"rgba(255,255,255,0.07)"}})
+          // Upload / Camera buttons
+          e("div",{style:{display:"flex",gap:8,opacity:aiCredits>0?1:0.4,pointerEvents:aiCredits>0?"auto":"none"}},
+            e("button",{style:{flex:1,...S.card,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>fileRef.current?.click()},
+              e(Icon,{d:IC.receipt,size:15,stroke:"rgba(255,255,255,0.5)"}),
+              e("span",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.7)"}},"Upload / PDF")),
+            e("button",{style:{flex:1,...S.card,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>cameraRef.current?.click()},
+              e(Icon,{d:IC.camera,size:15,stroke:"rgba(255,255,255,0.5)"}),
+              e("span",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.7)"}},"Camera"))
           )
-        ),
-        // Budget selector — only show if user has multiple budgets
-        budgets && budgets.length > 1 && !isEditing && e("div",{style:{marginBottom:14}},
-          e("label",{style:S.label},"Add to budget"),
-          e("select",{style:S.input,value:form.targetBudgetId||activeBudgetId,
-            onChange:ev=>setForm(f=>({...f,targetBudgetId:ev.target.value}))},
-            budgets.map(b=>e("option",{key:b.id,value:b.id},b.name))
-          )
-        ),
-
-        e("div",{style:{marginBottom:14}},
-          e("label",{style:S.label},"Name"),
-          e("input",{style:S.input,value:form.name,onChange:ev=>setForm(f=>({...f,name:ev.target.value})),placeholder:"e.g. Netflix, Kaufland..."})
-        ),
-        e("div",{style:{marginBottom:6}},
-          e("label",{style:S.label},"Amount & Currency"),
-          e("div",{style:{display:"flex",gap:8,alignItems:"center"}},
-            e("input",{style:{...S.input,flex:1},type:"number",value:form.amount,onChange:ev=>setForm(f=>({...f,amount:ev.target.value})),placeholder:"0.00"}),
-            e("div",{style:{display:"flex",gap:4}},
-              CURRENCIES.map(c=>e(CurPill,{key:c,label:c,active:form.currency===c,color:CUR_COLOR[c],onClick:()=>setForm(f=>({...f,currency:c,customRate:""}))}))
-            )
-          )
-        ),
-        needsRate&&e("div",{style:{...S.card,padding:"12px 14px",marginBottom:14,background:"rgba(255,255,255,0.025)",marginTop:8}},
-          e("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
-            e("label",{style:{...S.label,marginBottom:0}},"Rate: ",rateLabel),
-            e("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},"blank = default")
-          ),
-          e("input",{style:{...S.input,fontSize:14,padding:"9px 12px"},type:"number",step:"0.0001",
-            placeholder:`default: ${ratePlaceholder}`,value:form.customRate,
-            onChange:ev=>setForm(f=>({...f,customRate:ev.target.value}))}),
-          convertedPreview!==null&&form.amount&&e("p",{style:{fontSize:12,color:"#43A047",marginTop:7}},
-            "≈ ",fmt(convertedPreview,incomeCurrency)," ",
-            form.customRate?e("span",{style:{color:"#1E88E5"}},"· custom rate"):e("span",{style:{color:"rgba(255,255,255,0.3)"}},"· default rate")
-          )
-        ),
-        e("div",{style:{marginBottom:14}},
-          e("label",{style:S.label},"Category"),
-          e("div",{style:{display:"flex",gap:8}},
-            ["needs","wants","savings"].map(c=>e("button",{key:c,style:S.pill(form.category===c,CAT_COLOR[c]),onClick:()=>setForm(f=>({...f,category:c}))},c.charAt(0).toUpperCase()+c.slice(1)))
-          )
-        ),
-        e("div",{style:{marginBottom:22}},
-          e("label",{style:S.label},"Subcategory"),
-          e("select",{style:S.input,value:form.subcat,onChange:ev=>setForm(f=>({...f,subcat:ev.target.value}))},
-            e("option",{value:""},"Select..."),
-            (CATEGORIES[form.category]||[]).map(c=>e("option",{key:c,value:c},c))
-          )
-        ),
-        e("button",{style:S.btn("#e94560",true),onClick:()=>onAdd(type)},isEditing?"Save Changes":"Add Expense")
+        )
       )
     )
   );
