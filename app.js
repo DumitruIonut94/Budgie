@@ -1893,6 +1893,8 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
   const [expFilterCat, setExpFilterCat] = useState("");
   const [expSortBy, setExpSortBy]       = useState("date");
   const [showExpFilters, setShowExpFilters] = useState(false);
+  const [expFromDate, setExpFromDate]   = useState("");
+  const [expToDate, setExpToDate]       = useState("");
 
   function periodLabel(p) {
     if(!p)return"";
@@ -1950,13 +1952,15 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
   const filteredExpenses = histExpenses
     .filter(e => !expSearch || (e.name||"").toLowerCase().includes(expSearch.toLowerCase()))
     .filter(e => !expFilterCat || e.category===expFilterCat)
+    .filter(e => !expFromDate || (e.expense_date||"") >= expFromDate)
+    .filter(e => !expToDate   || (e.expense_date||"") <= expToDate)
     .sort((a,b)=>{
       if (expSortBy==="amount_desc") return (parseFloat(b.amount)||0)-(parseFloat(a.amount)||0);
       if (expSortBy==="amount_asc")  return (parseFloat(a.amount)||0)-(parseFloat(b.amount)||0);
       return (b.expense_date||"").localeCompare(a.expense_date||"");
     });
 
-  const hasExpFilters = !!expFilterCat || expSortBy!=="date";
+  const hasExpFilters = !!expFilterCat || expSortBy!=="date" || !!expFromDate || !!expToDate;
 
   // Export CSV — includes summary + individual expenses
   async function exportCSV() {
@@ -2181,6 +2185,21 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
             )
           ),
           showExpFilters&&React.createElement("div",{style:{marginBottom:12,padding:12,borderRadius:12,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)"}},
+            // Date range
+            React.createElement("p",{style:{...S.label,marginBottom:8}},"Date range"),
+            React.createElement("div",{style:{display:"flex",gap:8,marginBottom:14}},
+              React.createElement("div",{style:{flex:1}},
+                React.createElement("label",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:4,display:"block"}},"From"),
+                React.createElement("input",{type:"date",style:{...S.input,fontSize:12,padding:"8px 10px"},
+                  value:expFromDate,onChange:e=>setExpFromDate(e.target.value)})
+              ),
+              React.createElement("div",{style:{flex:1}},
+                React.createElement("label",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:4,display:"block"}},"To"),
+                React.createElement("input",{type:"date",style:{...S.input,fontSize:12,padding:"8px 10px"},
+                  value:expToDate,onChange:e=>setExpToDate(e.target.value)})
+              )
+            ),
+            // Category
             React.createElement("p",{style:{...S.label,marginBottom:8}},"Category"),
             React.createElement("div",{style:{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}},
               React.createElement("button",{style:S.pill(!expFilterCat,"#4ade9e"),onClick:()=>setExpFilterCat("")},"All"),
@@ -2189,6 +2208,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
                   c.charAt(0).toUpperCase()+c.slice(1))
               )
             ),
+            // Sort
             React.createElement("p",{style:{...S.label,marginBottom:8}},"Sort by"),
             React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
               [["date","Date ↓"],["amount_desc","Amount ↓"],["amount_asc","Amount ↑"]].map(([val,label])=>
@@ -2196,8 +2216,8 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
               )
             ),
             hasExpFilters&&React.createElement("button",{style:{...S.ghost,width:"100%",marginTop:10,fontSize:12,padding:"8px",color:"rgba(255,255,255,0.4)"},
-              onClick:()=>{setExpFilterCat("");setExpSortBy("date");}},
-              "Reset filters")
+              onClick:()=>{setExpFilterCat("");setExpSortBy("date");setExpFromDate("");setExpToDate("");}},
+              "Reset all filters")
           ),
           (expSearch||expFilterCat)&&React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:8}},
             `${filteredExpenses.length} result${filteredExpenses.length!==1?"s":""}`),
