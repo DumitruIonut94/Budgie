@@ -2504,18 +2504,15 @@ function FamilyMembers({budget, token, plan, isOwner}) {
 
   async function loadMembers() {
     try {
-      const profDb = await sb.from("profiles", token);
-      // Owner row
-      const ownerProf = await profDb.select("id,name", `id=eq.${budget.owner_id}`);
-      const ownerData = Array.isArray(ownerProf) ? ownerProf[0] : null;
-      const ownerRow = { user_id: budget.owner_id, role: "owner", name: ownerData?.name || "Owner" };
-
-      // Invited members (users who have invited_by_user = owner OR are in budget_members)
-      const invitedProfiles = await profDb.select("id,name,family_role,invited_by_user", `invited_by_user=eq.${budget.owner_id}`);
-      const invitedMembers = (Array.isArray(invitedProfiles) ? invitedProfiles : [])
-        .map(p => ({ user_id: p.id, role: "member", name: p.name || "Member" }));
-
-      setMembers([ownerRow, ...invitedMembers]);
+      const res = await sb.callFunction("get-family-members", token, {
+        ownerId: budget.owner_id,
+        budgetId: null,
+      });
+      if (res.owner && res.members !== undefined) {
+        const ownerRow = { user_id: res.owner.id, role: "owner", name: res.owner.name || "Owner" };
+        const memberRows = res.members.map(m => ({ user_id: m.user_id, role: "member", name: m.name }));
+        setMembers([ownerRow, ...memberRows]);
+      }
     } catch(e) { console.error("loadMembers error:", e); }
   }
 
@@ -3011,21 +3008,17 @@ function BudgetApp() {
         const budgetDb = await sb.from("budgets", token);
         // RLS policy now returns all accessible budgets (own + shared via budget_members)
         const allAccessible = await budgetDb.select("*", `order=created_at.asc`);
-        console.log("budgets response:", JSON.stringify(allAccessible)?.slice(0,200));
         if (Array.isArray(allAccessible)) {
           // Mark shared budgets (ones where user is not the owner)
           allBudgets = allAccessible.map(b => ({
             ...b,
             _shared: b.owner_id !== userData.id
           }));
-        } else {
-          console.error("budgets not array:", allAccessible);
         }
         setBudgets(allBudgets);
         // Prefer own budgets first, then shared
         const ownBud = allBudgets.find(b => b.owner_id === userData.id);
         bud = ownBud || allBudgets[0] || null;
-        console.log("selected budget:", bud?.name, "total:", allBudgets.length);
       } catch(e) { console.error("budget load error:", e); }
 
       if (!bud) {
@@ -3390,21 +3383,13 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
   async function loadFamilyMembers() {
     setLoading(true);
     try {
-      const profDb = await sb.from("profiles", token);
-      // Find all users who were invited by this owner
-      const invitedProfiles = await profDb.select("id,name,family_role", `invited_by_user=eq.${userId}`);
-      const familyMembers = Array.isArray(invitedProfiles) ? invitedProfiles : [];
-
-      // Check which ones already have access to this specific budget
-      const memberDb = await sb.from("budget_members", token);
-      const budMembers = await memberDb.select("user_id", `budget_id=eq.${budgetId}`);
-      const accessIds = Array.isArray(budMembers) ? budMembers.map(m=>m.user_id) : [];
-
-      setMembers(familyMembers.map(m=>({
-        user_id: m.id,
-        name: m.name || "Member",
-        hasAccess: accessIds.includes(m.id)
-      })));
+      const res = await sb.callFunction("get-family-members", token, {
+        ownerId: userId,
+        budgetId: budgetId,
+      });
+      if (res.members !== undefined) {
+        setMembers(res.members);
+      }
     } catch(e) { console.error("loadFamilyMembers error:", e); }
     setLoading(false);
   }
