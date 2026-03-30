@@ -1695,7 +1695,8 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
   const monthLabel=new Date().toLocaleString("en-US",{month:"long",year:"numeric"});
   const list=expenses.filter(e=>e.type===activeType);
 
-  function remove(id,type) {
+  function remove(id,type,name) {
+    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     onOpenEdit({id,_delete:true,type});
   }
 
@@ -1753,7 +1754,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
         showCV&&React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},"≈ ",fmt(cv,incomeCurrency))
       ),
       React.createElement("button",{
-        onClick:e=>{e.stopPropagation();remove(exp.id,exp.type);},
+        onClick:e=>{e.stopPropagation();remove(exp.id,exp.type,exp.name);},
         style:{background:"none",border:"none",color:"rgba(255,255,255,0.2)",cursor:"pointer",padding:4,flexShrink:0}},
         React.createElement(Icon,{d:IC.trash,size:15}))
     );
@@ -1803,9 +1804,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
           )
         ),
 
-      React.createElement("button",{style:{...S.card,width:"100%",border:"2px dashed rgba(255,255,255,0.1)",background:"none",color:"rgba(255,255,255,0.3)",cursor:"pointer",textAlign:"center",marginTop:8,padding:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8},
-        onClick:()=>onOpenAdd(activeType)},
-        React.createElement(Icon,{d:IC.plus,size:16})," Add ",activeType==="recurring"?"fixed":"variable"," expense")
+
     )
   );
 }
