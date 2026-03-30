@@ -1895,6 +1895,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
   const [showExpFilters, setShowExpFilters] = useState(false);
   const [expFromDate, setExpFromDate]   = useState("");
   const [expToDate, setExpToDate]       = useState("");
+  const [showExportModal, setShowExportModal] = useState(false);
 
   function periodLabel(p) {
     if(!p)return"";
@@ -2151,13 +2152,60 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
   );
 
   return React.createElement("div",{style:{padding:"0 0 20px"}},
-    React.createElement("div",{style:{padding:"44px 20px 14px",background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)",marginBottom:16}},
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
-        React.createElement(BudgieLogo,{size:44}),
-        React.createElement("div",null,
-          React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
-          React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},userName ? `${userName}'s History` : "History")
+    // Export Modal
+    showExportModal && React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:400,display:"flex",alignItems:"flex-end",backdropFilter:"blur(4px)"},
+      onClick:e=>{if(e.target===e.currentTarget)setShowExportModal(false);}},
+      React.createElement("div",{style:{background:"#13131f",borderRadius:"20px 20px 0 0",padding:"24px 20px 36px",width:"100%",maxWidth:480,margin:"0 auto",border:"1px solid rgba(255,255,255,0.08)"}},
+        React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}},
+          React.createElement("p",{style:{fontWeight:800,fontSize:17}},"Export"),
+          React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:()=>setShowExportModal(false)},
+            React.createElement(Icon,{d:IC.x,size:20}))
+        ),
+        React.createElement("p",{style:{...S.label,marginBottom:8}},"Date range"),
+        React.createElement("div",{style:{display:"flex",gap:8,marginBottom:20}},
+          React.createElement("div",{style:{flex:1}},
+            React.createElement("label",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:4,display:"block"}},"From"),
+            React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},value:fromPeriod,onChange:e=>setFromPeriod(e.target.value)},
+              React.createElement("option",{value:""},"Oldest"),
+              periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
+            )
+          ),
+          React.createElement("div",{style:{flex:1}},
+            React.createElement("label",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:4,display:"block"}},"To"),
+            React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},value:toPeriod,onChange:e=>setToPeriod(e.target.value)},
+              React.createElement("option",{value:""},"Latest"),
+              periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
+            )
+          )
+        ),
+        React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:14}},
+          `${filtered.length} period${filtered.length!==1?"s":""} selected`),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          React.createElement("button",{
+            style:{...S.ghost,flex:1,fontSize:14,padding:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:8},
+            onClick:()=>{exportCSV();setShowExportModal(false);},disabled:exporting||filtered.length===0},
+            React.createElement(Icon,{d:IC.download,size:16,stroke:"rgba(255,255,255,0.6)"}), " Export CSV"),
+          React.createElement("button",{
+            style:{...S.ghost,flex:1,fontSize:14,padding:"12px",display:"flex",alignItems:"center",justifyContent:"center",gap:8},
+            onClick:()=>{exportPDF();setShowExportModal(false);},disabled:exporting||filtered.length===0},
+            React.createElement(Icon,{d:IC.download,size:16,stroke:"rgba(255,255,255,0.6)"}), " Export PDF")
         )
+      )
+    ),
+    React.createElement("div",{style:{padding:"44px 20px 14px",background:"linear-gradient(160deg,#13131f 0%,#0a0a0f 100%)",marginBottom:16}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+          React.createElement(BudgieLogo,{size:44}),
+          React.createElement("div",null,
+            React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
+            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},userName ? `${userName}'s History` : "History")
+          )
+        ),
+        history.length>0 && React.createElement("button",{
+          style:{...S.ghost,padding:"8px 14px",display:"flex",alignItems:"center",gap:6,fontSize:13},
+          onClick:()=>setShowExportModal(true)},
+          React.createElement(Icon,{d:IC.download,size:15,stroke:"rgba(255,255,255,0.6)"}),
+          "Export")
       )
     ),
     React.createElement("div",{style:{padding:"0 16px"}},
@@ -2267,12 +2315,11 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
                   ];
                 })()
               ),
-              React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:6}},
+              React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6}},
                 (()=>{
                   const used=(h.needs||0)+(h.wants||0)+(h.savings||0);
                   const unused=Math.max(0,income-used);
-                  return [{label:"Income",value:fmt(income,h.currency),color:"rgba(255,255,255,0.7)"},
-                    {label:"Needs",value:fmt(h.needs||0,h.currency),color:"#f97316"},
+                  return [{label:"Needs",value:fmt(h.needs||0,h.currency),color:"#f97316"},
                     {label:"Wants",value:fmt(h.wants||0,h.currency),color:"#1E88E5"},
                     {label:"Savings",value:fmt(h.savings||0,h.currency),color:"#43A047"},
                     {label:"Unused",value:fmt(unused,h.currency),color:"rgba(255,255,255,0.3)"}];
@@ -2296,38 +2343,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
           )
         ),
 
-        // ── 3. Export ─────────────────────────────────────────────────────────
-        React.createElement("div",{style:{...S.card,marginBottom:16,padding:14}},
-          React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}},"Export"),
-          React.createElement("div",{style:{display:"flex",gap:8,marginBottom:10}},
-            React.createElement("div",{style:{flex:1}},
-              React.createElement("label",{style:{...S.label,marginBottom:4}},"From"),
-              React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},value:fromPeriod,onChange:e=>setFromPeriod(e.target.value)},
-                React.createElement("option",{value:""},"Oldest"),
-                periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
-              )
-            ),
-            React.createElement("div",{style:{flex:1}},
-              React.createElement("label",{style:{...S.label,marginBottom:4}},"To"),
-              React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},value:toPeriod,onChange:e=>setToPeriod(e.target.value)},
-                React.createElement("option",{value:""},"Latest"),
-                periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
-              )
-            )
-          ),
-          React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)",marginBottom:8}},
-            `${filtered.length} period${filtered.length!==1?"s":""} selected`),
-          React.createElement("div",{style:{display:"flex",gap:8}},
-            React.createElement("button",{
-              style:{...S.ghost,flex:1,fontSize:13,padding:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:6},
-              onClick:exportCSV,disabled:exporting||filtered.length===0},
-              exporting?"Exporting...":React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.download,size:14,stroke:"rgba(255,255,255,0.6)"}), " Export CSV")),
-            React.createElement("button",{
-              style:{...S.ghost,flex:1,fontSize:13,padding:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:6},
-              onClick:exportPDF,disabled:exporting||filtered.length===0},
-              exporting?"Exporting...":React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.download,size:14,stroke:"rgba(255,255,255,0.6)"}), " Export PDF"))
-          )
-        )
+
       )
     )
   );
