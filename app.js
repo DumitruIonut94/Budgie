@@ -2584,6 +2584,11 @@ function FamilyMembers({budget, token, plan, isOwner}) {
           loading?"...":"Invite")
       ),
       msg && React.createElement("p",{style:{fontSize:12,marginTop:8,color:msg.includes("Error")?"#e94560":"#4ade9e"}},msg)
+    ),
+    !isOwner && React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)"}},
+      React.createElement(Icon,{d:IC.lock,size:14,stroke:"rgba(255,255,255,0.3)"}),
+      React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)"}},
+        "Only Family Owners can invite new members.")
     )
   );
 }
