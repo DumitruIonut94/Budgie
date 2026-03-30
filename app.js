@@ -657,17 +657,42 @@ function UpgradeScreen({token, currentPlan, onClose}) {
 
   const plans = [
     {
+      key: "free", name: "Free", color: "rgba(255,255,255,0.4)",
+      monthlyPrice: "€0", yearlyPrice: "€0",
+      yearlyMonthly: "€0",
+      features: [
+        "1 budget",
+        "Fixed & variable expenses",
+        "50-30-20 overview",
+        "Multi-currency support",
+        "3 AI scan credits",
+      ],
+      priceKey: null,
+    },
+    {
       key: "pro", name: "Pro", color: "#43A047",
       monthlyPrice: "€2.99", yearlyPrice: "€29.99",
       yearlyMonthly: "€2.50",
-      features: ["Unlimited budgets","Full spending history","CSV & PDF export","Cloud backup & sync"],
+      features: [
+        "Unlimited budgets",
+        "Full spending history",
+        "CSV & PDF export",
+        "Cloud backup & sync",
+        "10 AI scan credits/month",
+      ],
       priceKey: billingCycle === "monthly" ? "pro_monthly" : "pro_yearly",
     },
     {
       key: "family", name: "Family", color: "#4ade9e",
       monthlyPrice: "€4.99", yearlyPrice: "€49.99",
       yearlyMonthly: "€4.17",
-      features: ["Everything in Pro","2-5 members per budget","Shared budget view","Family spending insights"],
+      features: [
+        "Everything in Pro",
+        "2–5 members per budget",
+        "Shared budget & expenses",
+        "Family spending insights",
+        "20 AI scan credits/month",
+      ],
       priceKey: billingCycle === "monthly" ? "family_monthly" : "family_yearly",
     }
   ];
@@ -712,13 +737,15 @@ function UpgradeScreen({token, currentPlan, onClose}) {
 
       // Plan cards
       plans.map(plan =>
-        React.createElement("div",{key:plan.key,style:{...S.card,marginBottom:16,border:`1px solid rgba(${rgb(plan.color)},0.3)`,position:"relative",overflow:"hidden"}},
+        React.createElement("div",{key:plan.key,style:{...S.card,marginBottom:16,border:`1px solid rgba(${rgb(plan.color==="rgba(255,255,255,0.4)"?"255,255,255":rgb(plan.color))},${plan.key==="free"?"0.1":"0.3"})`,position:"relative",overflow:"hidden",
+          opacity:plan.key==="free"&&currentPlan!=="free"?0.5:1}},
           plan.key==="family" && React.createElement("div",{style:{position:"absolute",top:12,right:12,fontSize:10,padding:"3px 10px",borderRadius:99,background:`rgba(${rgb(plan.color)},0.15)`,color:plan.color,fontWeight:700}},"MOST POPULAR"),
 
           React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}},
             React.createElement("div",null,
-              React.createElement("p",{style:{fontSize:18,fontWeight:900,color:plan.color}},"Budgie ",plan.name),
+              React.createElement("p",{style:{fontSize:18,fontWeight:900,color:plan.key==="free"?"rgba(255,255,255,0.5)":plan.color}},"Budgie ",plan.name),
               React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)"}},
+                plan.key==="free" ? "Free forever" :
                 billingCycle==="monthly"
                   ? `${plan.monthlyPrice}/month`
                   : `${plan.yearlyPrice}/year (${plan.yearlyMonthly}/mo)`)
@@ -727,20 +754,21 @@ function UpgradeScreen({token, currentPlan, onClose}) {
 
           plan.features.map(f =>
             React.createElement("div",{key:f,style:{display:"flex",alignItems:"center",gap:8,marginBottom:8}},
-              React.createElement(Icon,{d:IC.check,size:15,stroke:plan.color}),
-              React.createElement("span",{style:{fontSize:13,color:"rgba(255,255,255,0.7)"}},f)
+              React.createElement(Icon,{d:IC.check,size:15,stroke:plan.key==="free"?"rgba(255,255,255,0.3)":plan.color}),
+              React.createElement("span",{style:{fontSize:13,color:plan.key==="free"?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.7)"}},f)
             )
           ),
 
           currentPlan === plan.key
-            ? React.createElement("div",{style:{marginTop:16,padding:"10px",textAlign:"center",borderRadius:10,background:`rgba(${rgb(plan.color)},0.1)`,color:plan.color,fontSize:13,fontWeight:700}},"✓ Current Plan")
+            ? React.createElement("div",{style:{marginTop:16,padding:"10px",textAlign:"center",borderRadius:10,background:`rgba(${plan.key==="free"?"255,255,255":rgb(plan.color)},0.1)`,color:plan.key==="free"?"rgba(255,255,255,0.4)":plan.color,fontSize:13,fontWeight:700}},"✓ Current Plan")
+            : plan.key==="free" ? null
             : React.createElement("button",{
                 style:{...S.btn(plan.color,true),marginTop:16},
                 onClick:()=>checkout(plan.priceKey),
                 disabled:!!loading},
-                loading===plan.priceKey ? "Redirecting..." 
+                loading===plan.priceKey ? "Redirecting..."
                   : currentPlan !== "free" ? `Switch to ${plan.name}`
-                  : `Upgrade to ${plan.name}`)
+                  : `Upgrade to ${plan.name} — ${plan.monthlyPrice}/mo`)
         )
       ),
 
@@ -2327,8 +2355,12 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
         profile?.plan!=="free"&&profile?.plan_expires_at&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginLeft:"auto"}},
           "Renews ",new Date(profile.plan_expires_at).toLocaleDateString())
       ),
-      profile?.plan==="free"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%"},onClick:onUpgrade},
-        React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.zap,size:14,stroke:"#0a0a0f"}), " Upgrade to Pro — €2.99/mo")),
+      profile?.plan==="free"&&React.createElement("div",{style:{display:"flex",gap:8,marginTop:0}},
+        React.createElement("button",{style:{...S.btn("#43A047",true),color:"#fff",flex:1,fontSize:12},onClick:onUpgrade},
+          React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.zap,size:13,stroke:"#fff"}), " Pro €2.99/mo")),
+        React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",flex:1,fontSize:12},onClick:onUpgrade},
+          React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.family,size:13,stroke:"#0a0a0f"}), " Family €4.99/mo"))
+      ),
       profile?.plan==="pro"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%"},onClick:onUpgrade},
         React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.family,size:14,stroke:"#0a0a0f"}), " Switch to Family Plan"))
     ),
