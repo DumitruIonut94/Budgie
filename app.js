@@ -2157,120 +2157,14 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
       )
     ),
     React.createElement("div",{style:{padding:"0 16px"}},
-      // Export panel — always visible for Pro/Family
-      history.length>0&&React.createElement("div",{style:{...S.card,marginBottom:16,padding:14}},
-        React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}},"Export"),
-        React.createElement("div",{style:{display:"flex",gap:8,marginBottom:10}},
-          React.createElement("div",{style:{flex:1}},
-            React.createElement("label",{style:{...S.label,marginBottom:4}},"From"),
-            React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},
-              value:fromPeriod, onChange:e=>setFromPeriod(e.target.value)},
-              React.createElement("option",{value:""},"Oldest"),
-              periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
-            )
-          ),
-          React.createElement("div",{style:{flex:1}},
-            React.createElement("label",{style:{...S.label,marginBottom:4}},"To"),
-            React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},
-              value:toPeriod, onChange:e=>setToPeriod(e.target.value)},
-              React.createElement("option",{value:""},"Latest"),
-              periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
-            )
-          )
-        ),
-        React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)",marginBottom:8}},
-          `${filtered.length} period${filtered.length!==1?"s":""} selected`),
-        React.createElement("div",{style:{display:"flex",gap:8}},
-          React.createElement("button",{
-            style:{...S.ghost,flex:1,fontSize:13,padding:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:6},
-            onClick:exportCSV, disabled:exporting||filtered.length===0},
-            exporting?"Exporting...":React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.download,size:14,stroke:"rgba(255,255,255,0.6)"}), " Export CSV")),
-          React.createElement("button",{
-            style:{...S.ghost,flex:1,fontSize:13,padding:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:6},
-            onClick:exportPDF, disabled:exporting||filtered.length===0},
-            exporting?"Exporting...":React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.download,size:14,stroke:"rgba(255,255,255,0.6)"}), " Export PDF"))
-        )
-      ),
-      history.length===0?React.createElement("div",{style:{...S.card,textAlign:"center",padding:"48px 24px"}},
-        React.createElement("div",{style:{fontSize:44,marginBottom:12}},"📊"),
+      history.length===0 ? React.createElement("div",{style:{...S.card,textAlign:"center",padding:"48px 24px"}},
         React.createElement("p",{style:{fontWeight:700,fontSize:16,marginBottom:8}},"No history yet"),
         React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",lineHeight:1.6}},"Your spending breakdown will be saved here at the end of each budget period.")
       ) : React.createElement(React.Fragment,null,
-        history.length>1&&React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
-          React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:16}},"Last ",Math.min(history.length,6)," periods"),
-          React.createElement("div",{style:{display:"flex",gap:6,alignItems:"flex-end"}},
-            history.slice(0,6).reverse().map((h,i)=>{
-              const maxVal=Math.max(...history.slice(0,6).map(x=>x.income||1));
-              return React.createElement("div",{key:i,style:{flex:1,display:"flex",flexDirection:"column",gap:3}},
-                (()=>{
-                  const used = (h.needs||0)+(h.wants||0)+(h.savings||0);
-                  const unused = Math.max(0,(h.income||0)-used);
-                  const bars = [["needs","#f97316"],["wants","#1E88E5"],["savings","#43A047"],["_unused","rgba(255,255,255,0.12)"]];
-                  return bars.map(([k,c])=>{
-                    const val = k==="_unused" ? unused : (h[k]||0);
-                    const pct = maxVal>0?Math.min((val/maxVal)*100,100):0;
-                    return React.createElement("div",{key:k,style:{width:"100%",height:80,background:"rgba(255,255,255,0.05)",borderRadius:8,overflow:"hidden",display:"flex",alignItems:"flex-end"}},
-                      React.createElement("div",{style:{width:"100%",height:`${pct}%`,background:c,borderRadius:8,minHeight:val>0?4:0}}));
-                  });
-                })(),
-                React.createElement("p",{style:{fontSize:9,color:"rgba(255,255,255,0.3)",textAlign:"center",marginTop:2}},h.period?.slice(2).replace("-","/"))
-              );
-            })
-          ),
-          React.createElement("div",{style:{display:"flex",gap:12,marginTop:12,justifyContent:"center"}},
-            [["Needs","#f97316"],["Wants","#1E88E5"],["Savings","#43A047"],["Unused","rgba(255,255,255,0.15)"]].map(([l,c])=>
-              React.createElement("div",{key:l,style:{display:"flex",alignItems:"center",gap:4}},
-                React.createElement("div",{style:{width:8,height:8,borderRadius:2,background:c}}),
-                React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.4)"}},l)
-              )
-            )
-          )
-        ),
-        history.map((h,i)=>{
-          const income=h.income||0;
-          const savedPct=income>0?Math.max(0,((income-h.total)/income*100)).toFixed(0):0;
-          const over=h.total>income&&income>0;
-          return React.createElement("div",{key:i,style:{...S.card,marginBottom:12,padding:16}},
-            React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
-              React.createElement("p",{style:{fontWeight:800,fontSize:15}},periodLabel(h.period)),
-              React.createElement("span",{style:{fontSize:11,padding:"3px 10px",borderRadius:99,background:over?"rgba(233,69,96,0.15)":"rgba(74,222,158,0.12)",color:over?"#e94560":"#4ade9e",fontWeight:700}},over?"Over budget":`${savedPct}% saved`)
-            ),
-            income>0&&React.createElement("div",{style:{height:8,borderRadius:99,overflow:"hidden",background:"rgba(255,255,255,0.06)",display:"flex",marginBottom:12}},
-              (()=>{
-                const used = (h.needs||0)+(h.wants||0)+(h.savings||0);
-                const unusedPct = Math.max(0,((income-used)/income)*100);
-                return [
-                  ...["needs","wants","savings"].map(k=>
-                    React.createElement("div",{key:k,style:{width:`${Math.min((h[k]||0)/income*100,100)}%`,background:CAT_COLOR[k]}})
-                  ),
-                  unusedPct>0&&React.createElement("div",{key:"unused",style:{width:`${unusedPct}%`,background:"rgba(255,255,255,0.12)",borderRadius:"0 99px 99px 0"}})
-                ];
-              })()
-            ),
-            React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:6}},
-              (()=>{
-                const used=(h.needs||0)+(h.wants||0)+(h.savings||0);
-                const unused=Math.max(0,income-used);
-                return [{label:"Income",value:fmt(income,h.currency),color:"rgba(255,255,255,0.7)"},
-                 {label:"Needs",value:fmt(h.needs||0,h.currency),color:"#f97316"},
-                 {label:"Wants",value:fmt(h.wants||0,h.currency),color:"#1E88E5"},
-                 {label:"Savings",value:fmt(h.savings||0,h.currency),color:"#43A047"},
-                 {label:"Unused",value:fmt(unused,h.currency),color:"rgba(255,255,255,0.3)"}];
-              })().map(item=>
-                React.createElement("div",{key:item.label,style:{textAlign:"center"}},
-                  React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.3)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px",marginBottom:3}},item.label),
-                  React.createElement("p",{style:{fontSize:12,fontWeight:800,color:item.color}},item.value)
-                )
-              )
-            )
-          );
-        }),
 
-        // ── Historical Expenses ─────────────────────────────────────────────
-        React.createElement("div",{style:{...S.card,marginTop:8,padding:16}},
+        // ── 1. Expenses ──────────────────────────────────────────────────────
+        React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
           React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:12}},"Expenses"),
-
-          // Search + Filter
           React.createElement("div",{style:{display:"flex",gap:8,marginBottom:10}},
             React.createElement("div",{style:{flex:1,position:"relative",display:"flex",alignItems:"center"}},
               React.createElement("div",{style:{position:"absolute",left:10,pointerEvents:"none"}},
@@ -2286,8 +2180,6 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
               React.createElement(Icon,{d:"M4 6h16 M8 12h8 M11 18h2",size:15,stroke:hasExpFilters?"#4ade9e":"rgba(255,255,255,0.5)"})
             )
           ),
-
-          // Filter panel
           showExpFilters&&React.createElement("div",{style:{marginBottom:12,padding:12,borderRadius:12,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)"}},
             React.createElement("p",{style:{...S.label,marginBottom:8}},"Category"),
             React.createElement("div",{style:{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}},
@@ -2307,12 +2199,8 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
               onClick:()=>{setExpFilterCat("");setExpSortBy("date");}},
               "Reset filters")
           ),
-
-          // Results count
           (expSearch||expFilterCat)&&React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:8}},
             `${filteredExpenses.length} result${filteredExpenses.length!==1?"s":""}`),
-
-          // Expenses list
           histLoading ? React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.3)",textAlign:"center",padding:"16px 0"}},"Loading...") :
           filteredExpenses.length===0 ? React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.3)",textAlign:"center",padding:"16px 0"}},
             expSearch||expFilterCat?"No expenses match your search":"No expenses for this period") :
@@ -2333,6 +2221,92 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
               React.createElement("p",{style:{fontWeight:800,fontSize:13,color:cc,flexShrink:0}},fmt(parseFloat(exp.amount),ec))
             );
           })
+        ),
+
+        // ── 2. Last 2 periods breakdown ───────────────────────────────────────
+        history.length>0&&React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
+          React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:14}},"Last 2 periods"),
+          history.slice(0,2).map((h,i)=>{
+            const income=h.income||0;
+            const savedPct=income>0?Math.max(0,((income-h.total)/income*100)).toFixed(0):0;
+            const over=h.total>income&&income>0;
+            return React.createElement("div",{key:i,style:{marginBottom:i===0&&history.length>1?16:0}},
+              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
+                React.createElement("p",{style:{fontWeight:700,fontSize:13}},periodLabel(h.period)),
+                React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:99,background:over?"rgba(233,69,96,0.15)":"rgba(74,222,158,0.12)",color:over?"#e94560":"#4ade9e",fontWeight:700}},over?"Over budget":`${savedPct}% saved`)
+              ),
+              income>0&&React.createElement("div",{style:{height:8,borderRadius:99,overflow:"hidden",background:"rgba(255,255,255,0.06)",display:"flex",marginBottom:8}},
+                (()=>{
+                  const used=(h.needs||0)+(h.wants||0)+(h.savings||0);
+                  const unusedPct=Math.max(0,((income-used)/income)*100);
+                  return [
+                    ...["needs","wants","savings"].map(k=>
+                      React.createElement("div",{key:k,style:{width:`${Math.min((h[k]||0)/income*100,100)}%`,background:CAT_COLOR[k]}})
+                    ),
+                    unusedPct>0&&React.createElement("div",{key:"unused",style:{width:`${unusedPct}%`,background:"rgba(255,255,255,0.12)",borderRadius:"0 99px 99px 0"}})
+                  ];
+                })()
+              ),
+              React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr 1fr",gap:6}},
+                (()=>{
+                  const used=(h.needs||0)+(h.wants||0)+(h.savings||0);
+                  const unused=Math.max(0,income-used);
+                  return [{label:"Income",value:fmt(income,h.currency),color:"rgba(255,255,255,0.7)"},
+                    {label:"Needs",value:fmt(h.needs||0,h.currency),color:"#f97316"},
+                    {label:"Wants",value:fmt(h.wants||0,h.currency),color:"#1E88E5"},
+                    {label:"Savings",value:fmt(h.savings||0,h.currency),color:"#43A047"},
+                    {label:"Unused",value:fmt(unused,h.currency),color:"rgba(255,255,255,0.3)"}];
+                })().map(item=>
+                  React.createElement("div",{key:item.label,style:{textAlign:"center"}},
+                    React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.3)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px",marginBottom:3}},item.label),
+                    React.createElement("p",{style:{fontSize:12,fontWeight:800,color:item.color}},item.value)
+                  )
+                )
+              ),
+              i===0&&history.length>1&&React.createElement("div",{style:{height:1,background:"rgba(255,255,255,0.06)",marginTop:14}})
+            );
+          }),
+          React.createElement("div",{style:{display:"flex",gap:10,marginTop:12,justifyContent:"center"}},
+            [["Needs","#f97316"],["Wants","#1E88E5"],["Savings","#43A047"],["Unused","rgba(255,255,255,0.3)"]].map(([l,c])=>
+              React.createElement("div",{key:l,style:{display:"flex",alignItems:"center",gap:4}},
+                React.createElement("div",{style:{width:8,height:8,borderRadius:2,background:c}}),
+                React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.4)"}},l)
+              )
+            )
+          )
+        ),
+
+        // ── 3. Export ─────────────────────────────────────────────────────────
+        React.createElement("div",{style:{...S.card,marginBottom:16,padding:14}},
+          React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.4)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:10}},"Export"),
+          React.createElement("div",{style:{display:"flex",gap:8,marginBottom:10}},
+            React.createElement("div",{style:{flex:1}},
+              React.createElement("label",{style:{...S.label,marginBottom:4}},"From"),
+              React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},value:fromPeriod,onChange:e=>setFromPeriod(e.target.value)},
+                React.createElement("option",{value:""},"Oldest"),
+                periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
+              )
+            ),
+            React.createElement("div",{style:{flex:1}},
+              React.createElement("label",{style:{...S.label,marginBottom:4}},"To"),
+              React.createElement("select",{style:{...S.input,fontSize:13,padding:"8px 10px"},value:toPeriod,onChange:e=>setToPeriod(e.target.value)},
+                React.createElement("option",{value:""},"Latest"),
+                periods.map(p=>React.createElement("option",{key:p,value:p},periodLabel(p)))
+              )
+            )
+          ),
+          React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)",marginBottom:8}},
+            `${filtered.length} period${filtered.length!==1?"s":""} selected`),
+          React.createElement("div",{style:{display:"flex",gap:8}},
+            React.createElement("button",{
+              style:{...S.ghost,flex:1,fontSize:13,padding:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:6},
+              onClick:exportCSV,disabled:exporting||filtered.length===0},
+              exporting?"Exporting...":React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.download,size:14,stroke:"rgba(255,255,255,0.6)"}), " Export CSV")),
+            React.createElement("button",{
+              style:{...S.ghost,flex:1,fontSize:13,padding:"10px",display:"flex",alignItems:"center",justifyContent:"center",gap:6},
+              onClick:exportPDF,disabled:exporting||filtered.length===0},
+              exporting?"Exporting...":React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.download,size:14,stroke:"rgba(255,255,255,0.6)"}), " Export PDF"))
+          )
         )
       )
     )
