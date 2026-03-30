@@ -1655,7 +1655,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
                 React.createElement("p",{style:{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},exp.name),
                 React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},exp.expense_date||"")
               ),
-              React.createElement("p",{style:{fontSize:13,fontWeight:800,color:cc,flexShrink:0}},fmt(parseFloat(exp.amount),ec))
+              React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"#f0f0f5",flexShrink:0}},fmt(parseFloat(exp.amount),ec))
             );
           })
         ),
