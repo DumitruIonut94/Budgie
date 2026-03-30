@@ -2719,8 +2719,8 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
     // Currency & Income settings
     React.createElement(CurrencySettings,{budget,token,rates,updateBudget:onUpdateBudget}),
 
-    // Family members section
-    profile?.plan==="family" && React.createElement(FamilyMembers,{budget,token,plan:profile?.plan,isOwner:!profile?.family_role||profile?.family_role==="owner"}),
+    // Family members section — only for owners
+    profile?.plan==="family" && (!profile?.family_role || profile?.family_role==="owner") && React.createElement(FamilyMembers,{budget,token,plan:profile?.plan,isOwner:true}),
 
     // AI Credits display
     React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
@@ -2787,7 +2787,7 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
 
     // Actions
     React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
-      profile?.plan!=="free"&&React.createElement("button",{style:{...S.ghost,width:"100%",textAlign:"left"},onClick:handlePortal},
+      profile?.plan!=="free"&&(!profile?.family_role||profile?.family_role==="owner")&&React.createElement("button",{style:{...S.ghost,width:"100%",textAlign:"left"},onClick:handlePortal},
         "Manage Subscription & Billing"),
       React.createElement("button",{style:{...S.ghost,width:"100%",textAlign:"left",color:"#e94560",borderColor:"rgba(233,69,96,0.2)"},onClick:onSignOut},
         "Sign Out")
