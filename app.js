@@ -1509,10 +1509,9 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             React.createElement(Icon,{d:IC.cog,size:13})," Rates")
         )
       ),
-      false ? null : React.createElement("div",{style:{display:"flex",alignItems:"baseline",gap:6,marginBottom:12}},
-        React.createElement("span",{style:{fontSize:40,fontWeight:700,letterSpacing:"-0.5px"}}),
-        income>0?income.toLocaleString("ro-RO"):"—",
-        React.createElement("span",{style:{fontSize:40,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym)
+      false ? null : React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:12}},
+        React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"#f0f0f5"}},income>0?income.toLocaleString("ro-RO"):"—"),
+        React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym)
       ),
 
     ),
