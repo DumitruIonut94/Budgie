@@ -1896,7 +1896,8 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
   const [expFromDate, setExpFromDate]   = useState("");
   const [expToDate, setExpToDate]       = useState("");
   const [showExportModal, setShowExportModal] = useState(false);
-  const [expandedPeriod, setExpandedPeriod] = useState(null); // period key with breakdown open
+  const [expandedPeriod, setExpandedPeriod] = useState(null);
+  const [exportPeriod, setExportPeriod]     = useState(null); // period key for inline export
 
   function periodLabel(p) {
     if(!p)return"";
@@ -1963,6 +1964,103 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
     });
 
   const hasExpFilters = !!expFilterCat || expSortBy!=="date" || !!expFromDate || !!expToDate;
+
+  // Export a single period to CSV
+  function exportPeriodCSV(h, exps) {
+    try {
+      const income = h.income||0;
+      const used = (h.needs||0)+(h.wants||0)+(h.savings||0);
+      const unused = Math.max(0, income-used);
+      const rows = [
+        ["SUMMARY"],
+        ["Period","Income","Currency","Needs","Wants","Savings","Unused","Total"],
+        [periodLabel(h.period),(income).toFixed(2),h.currency||"RON",
+          (h.needs||0).toFixed(2),(h.wants||0).toFixed(2),(h.savings||0).toFixed(2),
+          unused.toFixed(2),(h.total||0).toFixed(2)],
+        [],
+        ["EXPENSES"],
+        ["Date","Name","Type","Category","Comments","Amount","Currency"],
+        ...exps.map(e=>[
+          e.expense_date||"", e.name||"",
+          e.type==="recurring"?"Fixed":"Variable",
+          e.category||"", e.subcat||"",
+          (parseFloat(e.amount)||0).toFixed(2), e.currency||"RON"
+        ])
+      ];
+      const csv = rows.map(r=>r.map(v=>'"'+String(v||"").replace(/"/g,'""')+'"').join(",")).join("
+");
+      const blob = new Blob(["﻿"+csv],{type:"text/csv;charset=utf-8;"});
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url; a.download = `budgie-${h.period}.csv`; a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) { alert("Export failed: "+e.message); }
+  }
+
+  // Export a single period to PDF
+  async function exportPeriodPDF(h, exps) {
+    setExporting(true);
+    try {
+      if (!window.jspdf) {
+        await new Promise((res,rej)=>{
+          const s=document.createElement("script");
+          s.src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+          s.onload=res; s.onerror=rej; document.head.appendChild(s);
+        });
+      }
+      const {jsPDF} = window.jspdf;
+      const doc = new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+      const W=210, margin=16;
+      let y=20;
+
+      // Header
+      doc.setFillColor(10,10,15); doc.rect(0,0,W,30,"F");
+      doc.setTextColor(74,222,158); doc.setFontSize(22); doc.setFont("helvetica","bold");
+      doc.text("Budgie", margin, 15);
+      doc.setTextColor(255,255,255); doc.setFontSize(11); doc.setFont("helvetica","normal");
+      doc.text(`${periodLabel(h.period)} Report`, margin, 22);
+      y=38;
+
+      const income=h.income||0;
+      const used=(h.needs||0)+(h.wants||0)+(h.savings||0);
+      const unused=Math.max(0,income-used);
+      const fmt2=n=>n.toLocaleString("ro-RO",{minimumFractionDigits:2,maximumFractionDigits:2})+" "+(h.currency||"RON");
+
+      // Summary box
+      doc.setFillColor(20,20,32); doc.roundedRect(margin,y,W-margin*2,32,3,3,"F");
+      doc.setFontSize(10); doc.setFont("helvetica","bold"); doc.setTextColor(255,255,255);
+      doc.text("Summary", margin+4, y+8);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(200,200,220);
+      [[`Income: ${fmt2(income)}`,margin+4],[`Needs: ${fmt2(h.needs||0)}`,margin+50],
+       [`Wants: ${fmt2(h.wants||0)}`,margin+96],[`Savings: ${fmt2(h.savings||0)}`,margin+142]].forEach(([t,x])=>doc.text(t,x,y+18));
+      [[`Spent: ${fmt2(used)}`,margin+4],[`Unused: ${fmt2(unused)}`,margin+60]].forEach(([t,x])=>doc.text(t,x,y+26));
+      y+=40;
+
+      // Expenses
+      if (exps.length>0) {
+        doc.setFontSize(7); doc.setTextColor(120,120,140); doc.setFont("helvetica","bold");
+        doc.text("Date",margin+2,y+4); doc.text("Name",margin+18,y+4);
+        doc.text("Type",margin+100,y+4); doc.text("Category",margin+128,y+4); doc.text("Amount",margin+162,y+4);
+        y+=7;
+        exps.forEach(e=>{
+          if(y>275){doc.addPage();y=20;}
+          doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(200,200,210);
+          doc.text(e.expense_date||"",margin+2,y+4);
+          doc.text((e.name||"").slice(0,38),margin+18,y+4);
+          doc.setTextColor(e.type==="recurring"?233:245,e.type==="recurring"?69:166,e.type==="recurring"?96:35);
+          doc.text(e.type==="recurring"?"Fixed":"Var.",margin+100,y+4);
+          doc.setTextColor(160,160,180); doc.text((e.category||"").slice(0,14),margin+128,y+4);
+          doc.setTextColor(15,188,249); doc.text(`${(parseFloat(e.amount)||0).toFixed(2)} ${e.currency||"RON"}`,margin+162,y+4);
+          y+=6;
+        });
+      }
+
+      doc.setFontSize(8); doc.setTextColor(100,100,120);
+      doc.text(`Generated by Budgie · ${new Date().toLocaleDateString()}`,margin,290);
+      doc.save(`budgie-${h.period}.pdf`);
+    } catch(e) { alert("PDF export failed: "+e.message); console.error(e); }
+    setExporting(false);
+  }
 
   // Export CSV — includes summary + individual expenses
   async function exportCSV() {
@@ -2229,7 +2327,31 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
             return React.createElement("div",{key:i,style:{marginBottom:i===0&&history.length>1?16:0}},
               // Header row
               React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}},
-                React.createElement("p",{style:{fontWeight:700,fontSize:13}},periodLabel(h.period)),
+                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+                  React.createElement("p",{style:{fontWeight:700,fontSize:13}},periodLabel(h.period)),
+                  React.createElement("button",{
+                    style:{background:"none",border:"none",cursor:"pointer",padding:4,color:"rgba(255,255,255,0.3)",display:"flex",alignItems:"center"},
+                    onClick:()=>setExportPeriod(exportPeriod===h.period?null:h.period)},
+                    React.createElement(Icon,{d:IC.download,size:14,stroke:exportPeriod===h.period?"#4ade9e":"rgba(255,255,255,0.4)"})
+                  ),
+                  exportPeriod===h.period&&React.createElement("div",{style:{display:"flex",gap:6,background:"rgba(255,255,255,0.06)",borderRadius:8,padding:"3px 6px"}},
+                    React.createElement("button",{
+                      style:{fontSize:11,fontWeight:700,color:"#4ade9e",background:"none",border:"none",cursor:"pointer",padding:"2px 6px"},
+                      onClick:async()=>{
+                        setExportPeriod(null);
+                        const exps = await fetchExpensesForRange(h.period, h.period);
+                        exportPeriodCSV(h, exps);
+                      }},"CSV"),
+                    React.createElement("span",{style:{color:"rgba(255,255,255,0.2)",lineHeight:"20px"}},"|"),
+                    React.createElement("button",{
+                      style:{fontSize:11,fontWeight:700,color:"#1E88E5",background:"none",border:"none",cursor:"pointer",padding:"2px 6px"},
+                      onClick:async()=>{
+                        setExportPeriod(null);
+                        const exps = await fetchExpensesForRange(h.period, h.period);
+                        exportPeriodPDF(h, exps);
+                      }},"PDF")
+                  )
+                ),
                 React.createElement("span",{style:{fontSize:11,padding:"2px 8px",borderRadius:99,
                   background:over?"rgba(233,69,96,0.15)":"rgba(74,222,158,0.12)",
                   color:over?"#e94560":"#4ade9e",fontWeight:700}},
