@@ -3009,24 +3009,19 @@ function BudgetApp() {
       let allBudgets = [];
       try {
         const budgetDb = await sb.from("budgets", token);
-        // Own budgets
-        const ownBudgets = await budgetDb.select("*", `owner_id=eq.${userData.id}&order=created_at.asc`);
-        // Budgets user is a member of (shared by others)
-        const memberDb2 = await sb.from("budget_members", token);
-        const memberships = await memberDb2.select("budget_id", `user_id=eq.${userData.id}&role=eq.member`);
-        let sharedBudgets = [];
-        if (Array.isArray(memberships) && memberships.length > 0) {
-          const ids = memberships.map(m => m.budget_id);
-          for (const bid of ids) {
-            try {
-              const rows = await budgetDb.select("*", `id=eq.${bid}`);
-              if (Array.isArray(rows) && rows[0]) sharedBudgets.push({...rows[0], _shared: true});
-            } catch(e) {}
-          }
+        // RLS policy now returns all accessible budgets (own + shared via budget_members)
+        const allAccessible = await budgetDb.select("*", `order=created_at.asc`);
+        if (Array.isArray(allAccessible)) {
+          // Mark shared budgets (ones where user is not the owner)
+          allBudgets = allAccessible.map(b => ({
+            ...b,
+            _shared: b.owner_id !== userData.id
+          }));
         }
-        allBudgets = [...(Array.isArray(ownBudgets)?ownBudgets:[]), ...sharedBudgets];
         setBudgets(allBudgets);
-        bud = allBudgets.length > 0 ? allBudgets[0] : null;
+        // Prefer own budgets first, then shared
+        const ownBud = allBudgets.find(b => b.owner_id === userData.id);
+        bud = ownBud || allBudgets[0] || null;
       } catch(e) { console.error("budget load error:", e); }
 
       if (!bud) {
@@ -3604,9 +3599,20 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
   );
 
   // ── Onboarding ─────────────────────────────────────────────────────────────
-  if(!budget) return React.createElement("div",{style:S.app},
+  // Members don't need onboarding — they access shared budgets
+  const isFamilyMember = profile?.plan === "family" && profile?.family_role === "member";
+  if(!budget && !isFamilyMember) return React.createElement("div",{style:S.app},
     React.createElement("style",null,globalStyles),
     React.createElement(Onboarding,{userName:profile?.name||user?.email?.split("@")[0]||"",onComplete:handleOnboardingComplete})
+  );
+  if(!budget && isFamilyMember) return React.createElement("div",{style:{...S.app,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:16,minHeight:"100vh"}},
+    React.createElement("style",null,globalStyles),
+    React.createElement(BudgieLogo,{size:60}),
+    React.createElement("p",{style:{color:"rgba(255,255,255,0.5)",fontSize:14,textAlign:"center",padding:"0 32px"}},"You've been added to a Family budget."),
+    React.createElement("p",{style:{color:"rgba(255,255,255,0.3)",fontSize:12,textAlign:"center"}},
+      "Ask the owner to share a budget with you, or wait for the page to refresh."),
+    React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",marginTop:8},
+      onClick:()=>loadUserData(authToken)},"Refresh")
   );
 
   // ── Main app ───────────────────────────────────────────────────────────────
