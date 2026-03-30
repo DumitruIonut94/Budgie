@@ -1512,7 +1512,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
       false ? null : React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12}},
         React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"#f0f0f5"}},income>0?income.toLocaleString("ro-RO"):"—"),
         React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym),
-        plan==="family"&&onShareBudget&&React.createElement("button",{
+        plan==="family"&&onShareBudget&&!budget?._shared&&React.createElement("button",{
           style:{marginLeft:4,background:"none",border:"1px solid rgba(74,222,158,0.3)",borderRadius:8,
             padding:"4px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,
             color:budget?.is_shared?"#4ade9e":"rgba(255,255,255,0.4)"},
@@ -3510,15 +3510,15 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
                 b.income_currency||"RON"," · ",b.payday?"Payday "+b.payday:"No payday set")
             ),
             b.id===budget?.id && React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}),
-            // Share button — only for own budgets, only on Pro/Family
-            b.owner_id===user?.id && plan==="family" && React.createElement("button",{
+            // Share button — only for own budgets owned by current user
+            b.owner_id===user?.id && plan==="family" && !b._shared && React.createElement("button",{
               onClick:e=>{e.stopPropagation();setShareBudgetId(b.id);},
               style:{background:"none",border:"none",cursor:"pointer",padding:4,
                 color:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"},
               title:"Manage sharing"},
               React.createElement(Icon,{d:IC.users,size:14,stroke:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"})
             ),
-            budgets.length > 1 && b.id !== budget?.id && b.owner_id===user?.id && React.createElement("button",{
+            budgets.length > 1 && b.id !== budget?.id && b.owner_id===user?.id && !b._shared && React.createElement("button",{
               onClick:e=>{e.stopPropagation();deleteBudget(b.id);},
               style:{background:"none",border:"none",color:"rgba(255,255,255,0.2)",cursor:"pointer",padding:4}},
               React.createElement(Icon,{d:IC.trash,size:14}))
