@@ -2487,6 +2487,7 @@ function FamilyMembers({budget, token, plan, isOwner}) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [loading, setLoading]   = useState(false);
   const [msg, setMsg]           = useState("");
+  const [shareModal, setShareModal] = useState(null); // budget being shared
 
   useEffect(()=>{
     if (!budget?.id || !token) return;
@@ -2497,11 +2498,22 @@ function FamilyMembers({budget, token, plan, isOwner}) {
     try {
       const db = await sb.from("budget_members", token);
       const rows = await db.select("user_id,role", `budget_id=eq.${budget.id}`);
+      const memberRows = Array.isArray(rows) ? rows : [];
       // Always include owner
       const ownerRow = { user_id: budget.owner_id, role: "owner" };
-      const members = Array.isArray(rows) ? rows : [];
-      const hasOwner = members.some(m => m.user_id === budget.owner_id);
-      setMembers(hasOwner ? members : [ownerRow, ...members]);
+      const hasOwner = memberRows.some(m => m.user_id === budget.owner_id);
+      const allRows = hasOwner ? memberRows : [ownerRow, ...memberRows];
+
+      // Load emails from profiles for each member
+      const profDb = await sb.from("profiles", token);
+      const enriched = await Promise.all(allRows.map(async m => {
+        try {
+          const prof = await profDb.select("id,name", `id=eq.${m.user_id}`);
+          const p = Array.isArray(prof) ? prof[0] : null;
+          return { ...m, name: p?.name || null };
+        } catch(e) { return m; }
+      }));
+      setMembers(enriched);
     } catch(e) { console.error("loadMembers error:", e); }
   }
 
@@ -2559,13 +2571,21 @@ function FamilyMembers({budget, token, plan, isOwner}) {
     // Members list
     members.length > 0 && React.createElement("div",{style:{marginBottom:14}},
       members.map((m,i) =>
-        React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.06)"}},
-          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-            React.createElement("div",{style:{width:28,height:28,borderRadius:99,background:"linear-gradient(135deg,#4ade9e,#43A047)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#0a0a0f"}},"👤"),
-            React.createElement("span",{style:{fontSize:13,color:"rgba(255,255,255,0.7)"}},
-              m.role === "owner" ? "You (owner)" : `Member`)
+        React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid rgba(255,255,255,0.06)"}},
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+            React.createElement("div",{style:{width:34,height:34,borderRadius:99,background:"linear-gradient(135deg,#4ade9e,#43A047)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,color:"#0a0a0f"}},
+              (m.name||"?")[0].toUpperCase()
+            ),
+            React.createElement("div",null,
+              React.createElement("p",{style:{fontSize:13,fontWeight:600,color:"#f0f0f5"}},
+                m.user_id === budget?.owner_id
+                  ? (m.name ? `${m.name} (you)` : "You")
+                  : (m.name || "Member")),
+              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)"}},
+                m.role === "owner" ? "Owner" : "Member")
+            )
           ),
-          m.role !== "owner" && React.createElement("button",{
+          m.role !== "owner" && isOwner && React.createElement("button",{
             style:{background:"none",border:"none",color:"rgba(255,255,255,0.3)",cursor:"pointer",fontSize:11},
             onClick:()=>removeMember(m.user_id)},"Remove")
         )
@@ -2573,17 +2593,19 @@ function FamilyMembers({budget, token, plan, isOwner}) {
     ),
 
     // Invite form — only for owners
-    isOwner && members.length < 5 && React.createElement("div",null,
-      React.createElement("label",{style:S.label},"Invite by email"),
-      React.createElement("div",{style:{display:"flex",gap:8}},
-        React.createElement("input",{style:{...S.input,flex:1,fontSize:13,padding:"10px 12px"},
-          type:"email",placeholder:"friend@example.com",value:inviteEmail,
-          onChange:e=>setInviteEmail(e.target.value),
-          onKeyDown:e=>{if(e.key==="Enter")sendInvite();}}),
-        React.createElement("button",{style:S.btn("#4ade9e"),onClick:sendInvite,disabled:loading},
-          loading?"...":"Invite")
-      ),
-      msg && React.createElement("p",{style:{fontSize:12,marginTop:8,color:msg.includes("Error")?"#e94560":"#4ade9e"}},msg)
+    isOwner && members.length < 5 && React.createElement(React.Fragment,null,
+      React.createElement("div",{style:{marginTop:4}},
+        React.createElement("label",{style:S.label},"Invite new member"),
+        React.createElement("div",{style:{display:"flex",gap:8}},
+          React.createElement("input",{style:{...S.input,flex:1,fontSize:13,padding:"10px 12px"},
+            type:"email",placeholder:"friend@example.com",value:inviteEmail,
+            onChange:e=>setInviteEmail(e.target.value),
+            onKeyDown:e=>{if(e.key==="Enter")sendInvite();}}),
+          React.createElement("button",{style:S.btn("#4ade9e"),onClick:sendInvite,disabled:loading},
+            loading?"...":"Invite")
+        ),
+        msg && React.createElement("p",{style:{fontSize:12,marginTop:8,color:msg.includes("Error")?"#e94560":"#4ade9e"}},msg)
+      )
     ),
     !isOwner && React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"10px 12px",borderRadius:10,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)"}},
       React.createElement(Icon,{d:IC.lock,size:14,stroke:"rgba(255,255,255,0.3)"}),
@@ -2780,6 +2802,7 @@ function BudgetApp() {
   const [budgets, setBudgets]       = useState([]);   // all budgets for this user
   const [showBudgetPicker, setShowBudgetPicker] = useState(false);
   const [showNewBudget, setShowNewBudget] = useState(false);
+  const [shareBudgetId, setShareBudgetId] = useState(null); // budget being configured for sharing
   const [expenses, setExpenses]     = useState([]);
   const [history, setHistory]       = useState([]);
   const [tab, setTab]               = useState("home");
@@ -3349,6 +3372,119 @@ function BudgetApp() {
   const globalStyles=`*{margin:0;padding:0;box-sizing:border-box;}body{background:#0a0a0f;}input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;}input::placeholder{color:rgba(255,255,255,0.2);}select option{background:#13131f;}::-webkit-scrollbar{width:0;}`;
 
   // Budget Picker Modal
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ShareBudgetModal — choose which family members can see a budget
+// ─────────────────────────────────────────────────────────────────────────────
+function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate}) {
+  const bud = budgets.find(b=>b.id===budgetId);
+  const [members, setMembers] = useState([]);
+  const [saving, setSaving]   = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(()=>{
+    loadFamilyMembers();
+  },[]);
+
+  async function loadFamilyMembers() {
+    setLoading(true);
+    try {
+      // Get all budget_members across all shared budgets (to find known family members)
+      const db = await sb.from("budget_members", token);
+      const allMembers = [];
+      for (const b of budgets.filter(b=>b.owner_id===userId)) {
+        const rows = await db.select("user_id,role", `budget_id=eq.${b.id}`);
+        if (Array.isArray(rows)) {
+          rows.forEach(r => {
+            if (r.user_id !== userId && !allMembers.find(m=>m.user_id===r.user_id)) {
+              allMembers.push(r);
+            }
+          });
+        }
+      }
+      // Load names from profiles
+      const profDb = await sb.from("profiles", token);
+      const enriched = await Promise.all(allMembers.map(async m => {
+        try {
+          const prof = await profDb.select("id,name", `id=eq.${m.user_id}`);
+          const p = Array.isArray(prof) ? prof[0] : null;
+          return { ...m, name: p?.name || "Member" };
+        } catch(e) { return {...m, name:"Member"}; }
+      }));
+      // Check which ones already have access to this budget
+      const budMembers = await db.select("user_id", `budget_id=eq.${budgetId}`);
+      const accessIds = Array.isArray(budMembers) ? budMembers.map(m=>m.user_id) : [];
+      setMembers(enriched.map(m=>({...m, hasAccess: accessIds.includes(m.user_id)})));
+    } catch(e) { console.error("loadFamilyMembers error:", e); }
+    setLoading(false);
+  }
+
+  async function toggleMember(memberId, currentAccess) {
+    setSaving(true);
+    try {
+      const db = await sb.from("budget_members", token);
+      if (currentAccess) {
+        await db.delete(`budget_id=eq.${budgetId}&user_id=eq.${memberId}`);
+      } else {
+        await db.insert({budget_id: budgetId, user_id: memberId, role: "member"});
+      }
+      setMembers(ms => ms.map(m => m.user_id===memberId ? {...m, hasAccess:!currentAccess} : m));
+      // Update is_shared flag on budget
+      const anyAccess = members.some(m => m.user_id===memberId ? !currentAccess : m.hasAccess);
+      onUpdate(budgetId, {is_shared: anyAccess});
+    } catch(e) { console.error("toggleMember error:", e); }
+    setSaving(false);
+  }
+
+  return React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:500,
+    display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",backdropFilter:"blur(4px)"},
+    onClick:e=>{if(e.target===e.currentTarget)onClose();}},
+    React.createElement("div",{style:{background:"#13131f",borderRadius:20,padding:"24px 20px",
+      width:"100%",maxWidth:420,border:"1px solid rgba(255,255,255,0.08)"}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}},
+        React.createElement("div",null,
+          React.createElement("p",{style:{fontWeight:800,fontSize:17}},"Share Budget"),
+          React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:2}},
+            bud?.name||"Budget")
+        ),
+        React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:onClose},
+          React.createElement(Icon,{d:IC.x,size:20}))
+      ),
+      loading ? React.createElement("p",{style:{color:"rgba(255,255,255,0.4)",textAlign:"center",padding:"16px"}},"Loading members...") :
+      members.length === 0 ? React.createElement("div",{style:{textAlign:"center",padding:"20px 0"}},
+        React.createElement(Icon,{d:IC.users,size:32,stroke:"rgba(255,255,255,0.2)"}),
+        React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginTop:10}},"No family members yet."),
+        React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.3)",marginTop:4}},"Invite members from the Account tab first.")
+      ) :
+      React.createElement("div",null,
+        React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:12}},"Choose who can see and add expenses to this budget:"),
+        members.map(m=>
+          React.createElement("div",{key:m.user_id,style:{display:"flex",justifyContent:"space-between",alignItems:"center",
+            padding:"12px 0",borderBottom:"1px solid rgba(255,255,255,0.06)"}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+              React.createElement("div",{style:{width:34,height:34,borderRadius:99,
+                background:m.hasAccess?"rgba(74,222,158,0.15)":"rgba(255,255,255,0.06)",
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:800,
+                color:m.hasAccess?"#4ade9e":"rgba(255,255,255,0.4)"}},
+                (m.name||"?")[0].toUpperCase()),
+              React.createElement("p",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.8)"}},m.name||"Member")
+            ),
+            React.createElement("div",{
+              style:{width:44,height:24,borderRadius:99,cursor:"pointer",position:"relative",transition:"background 0.2s",
+                background:m.hasAccess?"#4ade9e":"rgba(255,255,255,0.1)",opacity:saving?0.6:1},
+              onClick:()=>!saving&&toggleMember(m.user_id, m.hasAccess)},
+              React.createElement("div",{style:{position:"absolute",top:3,width:18,height:18,borderRadius:99,
+                background:"#fff",transition:"left 0.2s",left:m.hasAccess?"23px":"3px"}})
+            )
+          )
+        ),
+        React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%",marginTop:16},onClick:onClose},
+          "Done")
+      )
+    )
+  );
+}
+
   function BudgetPicker() {
     const [newName, setNewName]         = useState("");
     const [newPayday, setNewPayday]     = useState("");
@@ -3393,15 +3529,12 @@ function BudgetApp() {
                 b.income_currency||"RON"," · ",b.payday?"Payday "+b.payday:"No payday set")
             ),
             b.id===budget?.id && React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}),
-            // Share toggle — only for own budgets (not shared ones from others)
-            b.owner_id===user?.id && React.createElement("button",{
-              onClick:e=>{
-                e.stopPropagation();
-                updateBudgetById(b.id, {is_shared: !b.is_shared});
-              },
+            // Share button — only for own budgets, only on Pro/Family
+            b.owner_id===user?.id && plan==="family" && React.createElement("button",{
+              onClick:e=>{e.stopPropagation();setShareBudgetId(b.id);},
               style:{background:"none",border:"none",cursor:"pointer",padding:4,
-                color:b.is_shared?"#4ade9e":"rgba(255,255,255,0.2)"},
-              title:b.is_shared?"Shared with family":"Click to share with family"},
+                color:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"},
+              title:"Manage sharing"},
               React.createElement(Icon,{d:IC.users,size:14,stroke:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"})
             ),
             budgets.length > 1 && b.id !== budget?.id && b.owner_id===user?.id && React.createElement("button",{
@@ -3503,6 +3636,11 @@ function BudgetApp() {
 
     React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,onConfirmItems:confirmItems,rates,incomeCurrency,budgets,activeBudgetId:budget?.id,aiCredits,onBuyCredits:()=>setTab("account")}),
     showBudgetPicker && React.createElement(BudgetPicker,null),
+    shareBudgetId && React.createElement(ShareBudgetModal,{
+      budgetId:shareBudgetId, budgets, token:authToken, userId:user?.id,
+      onClose:()=>setShareBudgetId(null),
+      onUpdate:updateBudgetById
+    }),
     showMethodCard && React.createElement(BudgetMethodCard,{onDismiss:()=>setShowMethodCard(false)}),
     activeCatTooltip && React.createElement(CategoryTooltip,{cat:activeCatTooltip,onClose:()=>setActiveCatTooltip(null)}),
     React.createElement(RatesModal,{show:showRates,onClose:()=>setShowRates(false),rates,liveRates,ratesLoading,onSave:(cur,val)=>updateBudget({rates:{...(budget?.rates||{}),[cur]:val}}),onResetToLive:(cur)=>updateBudget({rates:{...(budget?.rates||{}),  [cur]:liveRates[cur]}})}),
