@@ -1393,8 +1393,22 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
               const catBudget = income * pct;
               const catSpent  = spentByType[cat] || 0;
               const spentPct  = catBudget > 0 ? catSpent / catBudget : 0;
-              const label     = cat.charAt(0).toUpperCase()+cat.slice(1);
 
+              if (cat === "savings") {
+                // For savings, more = better — encourage saving
+                if (catSpent === 0 && daysElapsed > 3) {
+                  insights.push({emoji:"save",msg:`No savings yet this period — set aside ${fmt(catBudget,incomeCurrency)} by payday!`,color:"#0fbcf9"});
+                } else if (spentPct >= 1.0) {
+                  insights.push({emoji:"check",msg:`Excellent! You've hit your savings goal of ${fmt(catBudget,incomeCurrency)} 🎯`,color:"#4ade9e"});
+                } else if (spentPct >= 0.5) {
+                  insights.push({emoji:"save",msg:`Good progress — ${fmt(catSpent,incomeCurrency)} saved, ${fmt(catBudget-catSpent,incomeCurrency)} to go!`,color:"#0fbcf9"});
+                } else if (daysElapsed > 10) {
+                  insights.push({emoji:"save",msg:`Try to save ${fmt(catBudget,incomeCurrency)} this period — you're at ${Math.round(spentPct*100)}%`,color:"#f5a623"});
+                }
+                return;
+              }
+
+              const label = cat.charAt(0).toUpperCase()+cat.slice(1);
               if (spentPct >= 1.0) {
                 insights.push({emoji:"alert",msg:`${label} is over budget by ${fmt(catSpent-catBudget,incomeCurrency)}`,color:"#e94560"});
               } else if (spentPct >= 0.8) {
