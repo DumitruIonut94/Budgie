@@ -2497,7 +2497,11 @@ function FamilyMembers({budget, token, plan, isOwner}) {
     try {
       const db = await sb.from("budget_members", token);
       const rows = await db.select("user_id,role", `budget_id=eq.${budget.id}`);
-      if (Array.isArray(rows)) setMembers(rows);
+      // Always include owner
+      const ownerRow = { user_id: budget.owner_id, role: "owner" };
+      const members = Array.isArray(rows) ? rows : [];
+      const hasOwner = members.some(m => m.user_id === budget.owner_id);
+      setMembers(hasOwner ? members : [ownerRow, ...members]);
     } catch(e) { console.error("loadMembers error:", e); }
   }
 
@@ -2820,31 +2824,53 @@ function BudgetApp() {
 
   async function acceptInvite(token_str) {
     try {
-      // Find invite by token
+      console.log("acceptInvite called with token:", token_str, "user:", user?.id);
+      // Find invite by token — try both pending and any status
       const db = await sb.from("invites", authToken);
-      const invites = await db.select("*", `token=eq.${token_str}&status=eq.pending`);
-      const invite = Array.isArray(invites) ? invites[0] : null;
-      if (!invite) { console.log("Invite not found or expired"); return; }
+      let invites = await db.select("*", `token=eq.${token_str}`);
+      console.log("Found invites:", invites);
+      const invite = Array.isArray(invites) && invites.length > 0 ? invites[0] : null;
+      if (!invite) { 
+        console.log("Invite not found for token:", token_str);
+        alert("Invite link expired or not found. Please ask the owner to send a new invite.");
+        return; 
+      }
+      if (invite.status === "accepted") {
+        console.log("Invite already accepted");
+        // Still try to add to members in case something failed before
+      }
 
       // Check if already member
       const memberDb = await sb.from("budget_members", authToken);
       const existing = await memberDb.select("*", `budget_id=eq.${invite.budget_id}&user_id=eq.${user.id}`);
-      if (Array.isArray(existing) && existing.length > 0) { console.log("Already a member"); return; }
-
-      // Add to budget_members
-      await memberDb.insert({ budget_id: invite.budget_id, user_id: user.id, role: "member" });
+      if (Array.isArray(existing) && existing.length > 0) { 
+        console.log("Already a member of this budget");
+        // Still update plan/role if needed
+      } else {
+        // Add to budget_members
+        await memberDb.insert({ budget_id: invite.budget_id, user_id: user.id, role: "member" });
+        console.log("Added to budget_members");
+      }
 
       // Mark invite accepted
       await db.update({ status: "accepted" }, `id=eq.${invite.id}`);
 
-      // Mark user as family member (not owner)
+      // Mark user as family member — set plan to family
       const profDb = await sb.from("profiles", authToken);
-      await profDb.update({ family_role: "member", plan: "family", invited_by_user: invite.invited_by }, `id=eq.${user.id}`);
+      const updateResult = await profDb.update({ 
+        family_role: "member", 
+        plan: "family", 
+        invited_by_user: invite.invited_by 
+      }, `id=eq.${user.id}`);
+      console.log("Profile updated:", updateResult);
 
       // Reload data to show the shared budget
       await loadUserData(authToken);
-      alert("✓ You joined the shared budget!");
-    } catch(e) { console.error("acceptInvite error:", e); }
+      alert("✓ You joined the shared budget! You now have Budgie Family access.");
+    } catch(e) { 
+      console.error("acceptInvite error:", e);
+      alert("Error joining: " + e.message);
+    }
   }
 
   useEffect(()=>{
@@ -3107,6 +3133,15 @@ function BudgetApp() {
     setBudgets(bs => bs.map(b => b.id === budget.id ? {...b,...patch} : b));
   }
 
+  async function updateBudgetById(budgetId, patch) {
+    try {
+      const db = await sb.from("budgets", authToken);
+      await db.update(patch, `id=eq.${budgetId}`);
+      setBudgets(bs => bs.map(b => b.id === budgetId ? {...b,...patch} : b));
+      if (budget?.id === budgetId) setBudget(b=>({...b,...patch}));
+    } catch(e) { console.error("updateBudgetById error:", e); }
+  }
+
   async function switchBudget(bud) {
     setBudget(bud);
     setExpenses([]);
@@ -3353,7 +3388,18 @@ function BudgetApp() {
                 b.income_currency||"RON"," · ",b.payday?"Payday "+b.payday:"No payday set")
             ),
             b.id===budget?.id && React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}),
-            budgets.length > 1 && b.id !== budget?.id && React.createElement("button",{
+            // Share toggle — only for own budgets (not shared ones from others)
+            b.owner_id===user?.id && React.createElement("button",{
+              onClick:e=>{
+                e.stopPropagation();
+                updateBudgetById(b.id, {is_shared: !b.is_shared});
+              },
+              style:{background:"none",border:"none",cursor:"pointer",padding:4,
+                color:b.is_shared?"#4ade9e":"rgba(255,255,255,0.2)"},
+              title:b.is_shared?"Shared with family":"Click to share with family"},
+              React.createElement(Icon,{d:IC.users,size:14,stroke:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"})
+            ),
+            budgets.length > 1 && b.id !== budget?.id && b.owner_id===user?.id && React.createElement("button",{
               onClick:e=>{e.stopPropagation();deleteBudget(b.id);},
               style:{background:"none",border:"none",color:"rgba(255,255,255,0.2)",cursor:"pointer",padding:4}},
               React.createElement(Icon,{d:IC.trash,size:14}))
