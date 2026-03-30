@@ -227,7 +227,7 @@ const CATEGORIES = {
   wants:   ["Dining Out","Entertainment","Shopping","Subscriptions","Travel","Hobbies"],
   savings: ["Emergency Fund","Investments","Retirement","Debt Repayment","Goals"],
 };
-const CAT_COLOR = { needs: "#e94560", wants: "#f5a623", savings: "#0fbcf9" };
+const CAT_COLOR = { needs: "#f97316", wants: "#f5a623", savings: "#0fbcf9" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Push Notifications
@@ -1356,7 +1356,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
       income>0 ? React.createElement(React.Fragment,null,
         // 50-30-20 cards
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}},
-          [{key:"needs",label:"Needs",pct:50,budget:income*0.5,color:"#e94560"},
+          [{key:"needs",label:"Needs",pct:50,budget:income*0.5,color:"#f97316"},
            {key:"wants",label:"Wants",pct:30,budget:income*0.3,color:"#f5a623"},
            {key:"savings",label:"Savings",pct:20,budget:income*0.2,color:"#0fbcf9"}].map(item=>{
             const spent=spentByType[item.key]||0, rem=item.budget-spent;
@@ -1389,7 +1389,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             const expectedSpendPct = daysElapsed / daysInPeriod;
 
             // Per category insights
-            [["needs","#e94560",0.5],["wants","#f5a623",0.3],["savings","#0fbcf9",0.2]].forEach(([cat,color,pct])=>{
+            [["needs","#f97316",0.5],["wants","#f5a623",0.3],["savings","#0fbcf9",0.2]].forEach(([cat,color,pct])=>{
               const catBudget = income * pct;
               const catSpent  = spentByType[cat] || 0;
               const spentPct  = catBudget > 0 ? catSpent / catBudget : 0;
@@ -1506,7 +1506,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
         React.createElement("p",{style:{fontWeight:700,fontSize:17,marginBottom:8}},"Set your monthly income"),
         React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:20}},"Tap the amount above to get started"),
         React.createElement("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:14,padding:16,textAlign:"left"}},
-          [["🔴","50%","Needs","Rent, food, bills"],["🟡","30%","Wants","Dining, shopping, fun"],["🔵","20%","Savings","Emergency fund, investments"]].map(([e,p,l,d])=>
+          [["🟠","50%","Needs","Rent, food, bills"],["🟡","30%","Wants","Dining, shopping, fun"],["🔵","20%","Savings","Emergency fund, investments"]].map(([e,p,l,d])=>
             React.createElement("div",{key:l,style:{display:"flex",gap:10,marginBottom:10}},
               React.createElement("span",null,e),
               React.createElement("div",null,
@@ -1896,7 +1896,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
             history.slice(0,6).reverse().map((h,i)=>{
               const maxVal=Math.max(...history.slice(0,6).map(x=>x.income||1));
               return React.createElement("div",{key:i,style:{flex:1,display:"flex",flexDirection:"column",gap:3}},
-                [["needs","#e94560"],["wants","#f5a623"],["savings","#0fbcf9"]].map(([k,c])=>{
+                [["needs","#f97316"],["wants","#f5a623"],["savings","#0fbcf9"]].map(([k,c])=>{
                   const pct=maxVal>0?Math.min((h[k]/maxVal)*100,100):0;
                   return React.createElement("div",{key:k,style:{width:"100%",height:80,background:"rgba(255,255,255,0.05)",borderRadius:8,overflow:"hidden",display:"flex",alignItems:"flex-end"}},
                     React.createElement("div",{style:{width:"100%",height:`${pct}%`,background:c,borderRadius:8,minHeight:h[k]>0?4:0}}));
@@ -1924,13 +1924,13 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
               React.createElement("span",{style:{fontSize:11,padding:"3px 10px",borderRadius:99,background:over?"rgba(233,69,96,0.15)":"rgba(74,222,158,0.12)",color:over?"#e94560":"#4ade9e",fontWeight:700}},over?"Over budget":`${savedPct}% saved`)
             ),
             income>0&&React.createElement("div",{style:{height:8,borderRadius:99,overflow:"hidden",background:"rgba(255,255,255,0.06)",display:"flex",marginBottom:12}},
-              [["needs","#e94560"],["wants","#f5a623"],["savings","#0fbcf9"]].map(([k,c])=>
+              [["needs","#f97316"],["wants","#f5a623"],["savings","#0fbcf9"]].map(([k,c])=>
                 React.createElement("div",{key:k,style:{width:`${Math.min((h[k]/income)*100,100)}%`,background:c}})
               )
             ),
             React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}},
               [{label:"Income",value:fmt(income,h.currency),color:"rgba(255,255,255,0.7)"},
-               {label:"Needs",value:fmt(h.needs,h.currency),color:"#e94560"},
+               {label:"Needs",value:fmt(h.needs,h.currency),color:"#f97316"},
                {label:"Wants",value:fmt(h.wants,h.currency),color:"#f5a623"},
                {label:"Savings",value:fmt(h.savings,h.currency),color:"#0fbcf9"}].map(item=>
                 React.createElement("div",{key:item.label,style:{textAlign:"center"}},
