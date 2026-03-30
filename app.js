@@ -232,7 +232,7 @@ const CAT_COLOR = { needs: "#e94560", wants: "#f5a623", savings: "#0fbcf9" };
 // ─────────────────────────────────────────────────────────────────────────────
 // Push Notifications
 // ─────────────────────────────────────────────────────────────────────────────
-const VAPID_PUBLIC_KEY = "BNeh1VhFBrr5kuWUx4rcJ7BPde3BE1XF8Us728enJ74M6TIpnQOMS4WHtEUuBgUJfRrWW_-oqLpC06wHMOBPDj0"; // Replace with your VAPID public key
+const VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY"; // Replace with your VAPID public key
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - base64String.length % 4) % 4);
@@ -1281,7 +1281,7 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
 // ─────────────────────────────────────────────────────────────────────────────
 // Home Tab
 // ─────────────────────────────────────────────────────────────────────────────
-function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName,onOpenBudgetPicker,budgetsCount,budgetName}) {
+function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName,onOpenBudgetPicker,budgetsCount,budgetName,onSwitchTab}) {
   const [editingIncome,setEditingIncome]=useState(false);
   const [incomeInput,setIncomeInput]=useState("");
   const income=parseFloat(budget?.monthly_income)||0;
@@ -1359,28 +1359,85 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
           })
         ),
 
-        // Breakdown bars
-        React.createElement("div",{style:{...S.card,marginBottom:20}},
-          React.createElement("p",{style:{fontSize:11,fontWeight:700,marginBottom:16,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.8px"}},"Spending Breakdown"),
-          [{label:"Needs (50%)",budget:income*0.5,spent:spentByType.needs||0,color:"#e94560",icon:IC.wallet},
-           {label:"Wants (30%)",budget:income*0.3,spent:spentByType.wants||0,color:"#f5a623",icon:IC.sparkle},
-           {label:"Savings (20%)",budget:income*0.2,spent:spentByType.savings||0,color:"#0fbcf9",icon:IC.wallet}].map(({label,budget,spent,color,icon})=>{
-            const pct=budget>0?Math.min((spent/budget)*100,100):0, over=spent>budget;
-            return React.createElement("div",{key:label,style:{marginBottom:16}},
-              React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}},
-                React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-                  React.createElement("div",{style:{width:26,height:26,borderRadius:7,background:`rgba(${rgb(color)},0.15)`,display:"flex",alignItems:"center",justifyContent:"center"}},
-                    React.createElement(Icon,{d:icon,size:13,stroke:color})),
-                  React.createElement("span",{style:{fontSize:13,fontWeight:600}},label)
-                ),
-                React.createElement("div",{style:{textAlign:"right"}},
-                  React.createElement("span",{style:{fontSize:13,fontWeight:700,color:over?"#e94560":color}},fmt(spent,incomeCurrency)),
-                  React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}}," / ",fmt(budget,incomeCurrency))
-                )
+        // Insights card
+        React.createElement("div",{style:{...S.card,marginBottom:16}},
+          React.createElement("p",{style:{fontSize:11,fontWeight:700,marginBottom:12,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.8px"}},"💡 Insights"),
+          (()=>{
+            const insights = [];
+            const daysInPeriod = 30;
+            const today = new Date();
+            const payday = budget?.payday || 1;
+            const dayOfMonth = today.getDate();
+            const daysLeft = dayOfMonth >= payday
+              ? daysInPeriod - (dayOfMonth - payday)
+              : payday - dayOfMonth;
+            const daysElapsed = daysInPeriod - daysLeft;
+            const expectedSpendPct = daysElapsed / daysInPeriod;
+
+            // Per category insights
+            [["needs","#e94560",0.5],["wants","#f5a623",0.3],["savings","#0fbcf9",0.2]].forEach(([cat,color,pct])=>{
+              const catBudget = income * pct;
+              const catSpent  = spentByType[cat] || 0;
+              const spentPct  = catBudget > 0 ? catSpent / catBudget : 0;
+              const label     = cat.charAt(0).toUpperCase()+cat.slice(1);
+
+              if (spentPct >= 1.0) {
+                insights.push({emoji:"🚨",msg:`${label} is over budget by ${fmt(catSpent-catBudget,incomeCurrency)}`,color:"#e94560"});
+              } else if (spentPct >= 0.8) {
+                insights.push({emoji:"⚠️",msg:`${label} is at ${Math.round(spentPct*100)}% — ${fmt(catBudget-catSpent,incomeCurrency)} left`,color:"#f5a623"});
+              } else if (spentPct < expectedSpendPct * 0.6 && daysElapsed > 5) {
+                insights.push({emoji:"✅",msg:`${label} is on track — ${Math.round(spentPct*100)}% used`,color:color});
+              }
+            });
+
+            // Spending velocity
+            if (daysElapsed > 3 && income > 0) {
+              const dailyRate = totalSpent / daysElapsed;
+              const projected = dailyRate * daysInPeriod;
+              if (projected > income * 1.1) {
+                insights.push({emoji:"📈",msg:`At this rate you'll spend ${fmt(projected,incomeCurrency)} this period`,color:"#f5a623"});
+              } else if (projected < income * 0.7) {
+                insights.push({emoji:"💪",msg:`Great pace! Projected to save ${fmt(income-projected,incomeCurrency)}`,color:"#4ade9e"});
+              }
+            }
+
+            // Days left
+            if (daysLeft <= 5 && daysLeft > 0) {
+              insights.push({emoji:"📅",msg:`${daysLeft} day${daysLeft===1?"":"s"} left in this period`,color:"rgba(255,255,255,0.5)"});
+            }
+
+            if (insights.length === 0) {
+              insights.push({emoji:"🟢",msg:"Everything looks good this period!", color:"#4ade9e"});
+            }
+
+            return insights.slice(0,3).map((ins,i) =>
+              React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<insights.slice(0,3).length-1?10:0,padding:"8px 10px",borderRadius:10,background:`rgba(${rgb(ins.color)},0.06)`}},
+                React.createElement("span",{style:{fontSize:16}},ins.emoji),
+                React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.4}},ins.msg)
+              )
+            );
+          })()
+        ),
+
+        // Recent Expenses
+        allExpenses.length > 0 && React.createElement("div",{style:{...S.card,marginBottom:16}},
+          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+            React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.8px"}},"🕐 Recent"),
+            React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:11,cursor:"pointer"},
+              onClick:()=>onSwitchTab("expenses")},"See all →")
+          ),
+          allExpenses.slice(0,4).map((exp,i) => {
+            const cc = CAT_COLOR[exp.category] || "#f0f0f5";
+            const ec = exp.currency || incomeCurrency;
+            return React.createElement("div",{key:exp.id||i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<3?10:0}},
+              React.createElement("div",{style:{width:34,height:34,borderRadius:10,background:`rgba(${rgb(cc)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+                React.createElement(Icon,{d:exp.type==="recurring"?IC.repeat:IC.receipt,size:15,stroke:cc})
               ),
-              React.createElement("div",{style:{height:6,background:"rgba(255,255,255,0.07)",borderRadius:99,overflow:"hidden"}},
-                React.createElement("div",{style:{height:"100%",width:`${pct}%`,background:over?"#e94560":color,borderRadius:99,transition:"width 0.6s cubic-bezier(0.34,1.56,0.64,1)"}})),
-              over&&React.createElement("p",{style:{fontSize:11,color:"#e94560",marginTop:3}},"⚠ Over by ",fmt(spent-budget,incomeCurrency))
+              React.createElement("div",{style:{flex:1,minWidth:0}},
+                React.createElement("p",{style:{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},exp.name),
+                React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},exp.expense_date||"")
+              ),
+              React.createElement("p",{style:{fontSize:13,fontWeight:800,color:cc,flexShrink:0}},fmt(parseFloat(exp.amount),ec))
             );
           })
         ),
@@ -2666,7 +2723,7 @@ function BudgetApp() {
   return React.createElement("div",{style:S.app},
     React.createElement("style",null,globalStyles),
 
-    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name}),
+    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif}),
