@@ -837,7 +837,7 @@ function Onboarding({userName, onComplete}) {
       React.createElement("div",{style:{marginBottom:14}},
         React.createElement("label",{style:S.label},"Currency"),
         React.createElement("div",{style:{display:"flex",gap:8}},
-          CURRENCIES.map(c=>React.createElement(CurPill,{key:c,label:c,active:currency===c,color:CUR_COLOR[c],onClick:()=>setCurrency(c)}))
+          CURRENCIES.map(c=>React.createElement(CurPill,{key:c,label:c,active:currency===c,color:currency===c?"#e94560":CUR_COLOR[c],onClick:()=>setCurrency(c)}))
         )
       ),
       React.createElement("input",{style:{...S.input,fontSize:24,fontWeight:800,padding:"16px",textAlign:"center"},
