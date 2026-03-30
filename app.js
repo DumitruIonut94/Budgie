@@ -1483,7 +1483,7 @@ function CategoryTooltip({cat, onClose}) {
   );
 }
 
-function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName,onOpenBudgetPicker,budgetsCount,budgetName,onSwitchTab,onCatInfo}) {
+function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName,onOpenBudgetPicker,budgetsCount,budgetName,onSwitchTab,onCatInfo,onShareBudget}) {
   const [editingIncome,setEditingIncome]=useState(false);
   const [incomeInput,setIncomeInput]=useState("");
   const income=parseFloat(budget?.monthly_income)||0;
@@ -1509,9 +1509,17 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             React.createElement(Icon,{d:IC.cog,size:13})," Rates")
         )
       ),
-      false ? null : React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:12}},
+      false ? null : React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12}},
         React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"#f0f0f5"}},income>0?income.toLocaleString("ro-RO"):"—"),
-        React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym)
+        React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym),
+        plan==="family"&&onShareBudget&&React.createElement("button",{
+          style:{marginLeft:4,background:"none",border:"1px solid rgba(74,222,158,0.3)",borderRadius:8,
+            padding:"4px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,
+            color:budget?.is_shared?"#4ade9e":"rgba(255,255,255,0.4)"},
+          onClick:onShareBudget},
+          React.createElement(Icon,{d:IC.users,size:13,stroke:budget?.is_shared?"#4ade9e":"rgba(255,255,255,0.4)"}),
+          React.createElement("span",{style:{fontSize:11,fontWeight:600}},budget?.is_shared?"Shared":"Share")
+        )
       ),
 
     ),
@@ -2496,24 +2504,18 @@ function FamilyMembers({budget, token, plan, isOwner}) {
 
   async function loadMembers() {
     try {
-      const db = await sb.from("budget_members", token);
-      const rows = await db.select("user_id,role", `budget_id=eq.${budget.id}`);
-      const memberRows = Array.isArray(rows) ? rows : [];
-      // Always include owner
-      const ownerRow = { user_id: budget.owner_id, role: "owner" };
-      const hasOwner = memberRows.some(m => m.user_id === budget.owner_id);
-      const allRows = hasOwner ? memberRows : [ownerRow, ...memberRows];
-
-      // Load emails from profiles for each member
       const profDb = await sb.from("profiles", token);
-      const enriched = await Promise.all(allRows.map(async m => {
-        try {
-          const prof = await profDb.select("id,name", `id=eq.${m.user_id}`);
-          const p = Array.isArray(prof) ? prof[0] : null;
-          return { ...m, name: p?.name || null };
-        } catch(e) { return m; }
-      }));
-      setMembers(enriched);
+      // Owner row
+      const ownerProf = await profDb.select("id,name", `id=eq.${budget.owner_id}`);
+      const ownerData = Array.isArray(ownerProf) ? ownerProf[0] : null;
+      const ownerRow = { user_id: budget.owner_id, role: "owner", name: ownerData?.name || "Owner" };
+
+      // Invited members (users who have invited_by_user = owner OR are in budget_members)
+      const invitedProfiles = await profDb.select("id,name,family_role,invited_by_user", `invited_by_user=eq.${budget.owner_id}`);
+      const invitedMembers = (Array.isArray(invitedProfiles) ? invitedProfiles : [])
+        .map(p => ({ user_id: p.id, role: "member", name: p.name || "Member" }));
+
+      setMembers([ownerRow, ...invitedMembers]);
     } catch(e) { console.error("loadMembers error:", e); }
   }
 
@@ -3389,32 +3391,21 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
   async function loadFamilyMembers() {
     setLoading(true);
     try {
-      // Get all budget_members across all shared budgets (to find known family members)
-      const db = await sb.from("budget_members", token);
-      const allMembers = [];
-      for (const b of budgets.filter(b=>b.owner_id===userId)) {
-        const rows = await db.select("user_id,role", `budget_id=eq.${b.id}`);
-        if (Array.isArray(rows)) {
-          rows.forEach(r => {
-            if (r.user_id !== userId && !allMembers.find(m=>m.user_id===r.user_id)) {
-              allMembers.push(r);
-            }
-          });
-        }
-      }
-      // Load names from profiles
       const profDb = await sb.from("profiles", token);
-      const enriched = await Promise.all(allMembers.map(async m => {
-        try {
-          const prof = await profDb.select("id,name", `id=eq.${m.user_id}`);
-          const p = Array.isArray(prof) ? prof[0] : null;
-          return { ...m, name: p?.name || "Member" };
-        } catch(e) { return {...m, name:"Member"}; }
-      }));
-      // Check which ones already have access to this budget
-      const budMembers = await db.select("user_id", `budget_id=eq.${budgetId}`);
+      // Find all users who were invited by this owner
+      const invitedProfiles = await profDb.select("id,name,family_role", `invited_by_user=eq.${userId}`);
+      const familyMembers = Array.isArray(invitedProfiles) ? invitedProfiles : [];
+
+      // Check which ones already have access to this specific budget
+      const memberDb = await sb.from("budget_members", token);
+      const budMembers = await memberDb.select("user_id", `budget_id=eq.${budgetId}`);
       const accessIds = Array.isArray(budMembers) ? budMembers.map(m=>m.user_id) : [];
-      setMembers(enriched.map(m=>({...m, hasAccess: accessIds.includes(m.user_id)})));
+
+      setMembers(familyMembers.map(m=>({
+        user_id: m.id,
+        name: m.name || "Member",
+        hasAccess: accessIds.includes(m.id)
+      })));
     } catch(e) { console.error("loadFamilyMembers error:", e); }
     setLoading(false);
   }
@@ -3622,7 +3613,7 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
   return React.createElement("div",{style:S.app},
     React.createElement("style",null,globalStyles),
 
-    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab,onCatInfo:setActiveCatTooltip}),
+    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab,onCatInfo:setActiveCatTooltip,onShareBudget:()=>setShareBudgetId(budget?.id)}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif,onUpdateBudget:updateBudget,rates}),
