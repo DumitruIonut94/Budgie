@@ -1692,41 +1692,53 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
 // ─────────────────────────────────────────────────────────────────────────────
 function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpenEdit,budget,userName}) {
   const [activeType,setActiveType]=useState("recurring");
+  const [search, setSearch]       = useState("");
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterCat, setFilterCat] = useState("");
+  const [sortBy, setSortBy]       = useState("date");
   const monthLabel=new Date().toLocaleString("en-US",{month:"long",year:"numeric"});
-  const list=expenses.filter(e=>e.type===activeType);
+
+  const list = expenses
+    .filter(e => e.type === activeType)
+    .filter(e => !search || (e.name||"").toLowerCase().includes(search.toLowerCase()))
+    .filter(e => !filterCat || e.category === filterCat)
+    .sort((a,b) => {
+      if (sortBy === "amount_desc") return (parseFloat(b.amount)||0) - (parseFloat(a.amount)||0);
+      if (sortBy === "amount_asc")  return (parseFloat(a.amount)||0) - (parseFloat(b.amount)||0);
+      return (b.expense_date||"").localeCompare(a.expense_date||"");
+    });
+
+  const hasActiveFilters = !!filterCat || sortBy !== "date";
 
   function remove(id,type,name) {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
     onOpenEdit({id,_delete:true,type});
   }
 
-  // Group expenses by date label
   function groupByDate(exps) {
     const today     = new Date(); today.setHours(0,0,0,0);
     const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
     const lastWeek  = new Date(today); lastWeek.setDate(today.getDate()-7);
     const lastMonth = new Date(today); lastMonth.setDate(today.getDate()-30);
-
     const groups = {};
     exps.forEach(exp => {
       const d = exp.expense_date ? new Date(exp.expense_date+"T00:00:00") : null;
       let label;
-      if (!d) { label = "Unknown date"; }
-      else if (d >= today)     { label = "Today"; }
-      else if (d >= yesterday) { label = "Yesterday"; }
-      else if (d >= lastWeek)  { label = "This week"; }
-      else if (d >= lastMonth) { label = "This month"; }
-      else                     { label = "Older"; }
+      if (!d)              label = "Unknown date";
+      else if (d >= today) label = "Today";
+      else if (d >= yesterday) label = "Yesterday";
+      else if (d >= lastWeek)  label = "This week";
+      else if (d >= lastMonth) label = "This month";
+      else                     label = "Older";
       if (!groups[label]) groups[label] = [];
       groups[label].push(exp);
     });
-
     const order = ["Today","Yesterday","This week","This month","Older","Unknown date"];
     return order.filter(l => groups[l]).map(l => ({ label: l, items: groups[l] }));
   }
 
-  // For fixed expenses — no date grouping (they're permanent)
-  const grouped = activeType === "daily" ? groupByDate(list) : null;
+  const useGrouping = activeType === "daily" && !search && !filterCat && sortBy === "date";
+  const grouped = useGrouping ? groupByDate(list) : null;
 
   function ExpenseRow({exp}) {
     const cc=CAT_COLOR[exp.category]||"#f0f0f5";
@@ -1776,23 +1788,55 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
     ),
     React.createElement("div",{style:{padding:"0 16px"}},
       React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12}},
-        React.createElement("button",{style:S.pill(activeType==="recurring"),onClick:()=>setActiveType("recurring")},"Fixed"),
-        React.createElement("button",{style:S.pill(activeType==="daily","#1E88E5"),onClick:()=>setActiveType("daily")},"Variable")
+        React.createElement("button",{style:S.pill(activeType==="recurring"),onClick:()=>{setActiveType("recurring");setSearch("");setFilterCat("");setSortBy("date");}},"Fixed"),
+        React.createElement("button",{style:S.pill(activeType==="daily","#1E88E5"),onClick:()=>{setActiveType("daily");setSearch("");setFilterCat("");setSortBy("date");}},"Variable")
+      ),
+      React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12}},
+        React.createElement("div",{style:{flex:1,position:"relative",display:"flex",alignItems:"center"}},
+          React.createElement("div",{style:{position:"absolute",left:10,pointerEvents:"none"}},
+            React.createElement(Icon,{d:"M11 3a8 8 0 1 0 0 16A8 8 0 0 0 11 3z M21 21l-4.35-4.35",size:15,stroke:"rgba(255,255,255,0.3)"})
+          ),
+          React.createElement("input",{style:{...S.input,paddingLeft:34,fontSize:13},placeholder:"Search expenses...",value:search,onChange:e=>setSearch(e.target.value)})
+        ),
+        React.createElement("button",{
+          style:{...S.card,padding:"0 12px",display:"flex",alignItems:"center",gap:4,cursor:"pointer",flexShrink:0,minHeight:44,
+            border:hasActiveFilters?"1px solid rgba(74,222,158,0.4)":"1px solid rgba(255,255,255,0.07)",
+            background:hasActiveFilters?"rgba(74,222,158,0.08)":"rgba(255,255,255,0.04)"},
+          onClick:()=>setShowFilters(!showFilters)},
+          React.createElement(Icon,{d:"M4 6h16 M8 12h8 M11 18h2",size:16,stroke:hasActiveFilters?"#4ade9e":"rgba(255,255,255,0.5)"}),
+          hasActiveFilters&&React.createElement("div",{style:{width:6,height:6,borderRadius:99,background:"#4ade9e",position:"absolute",marginTop:-16,marginLeft:8}})
+        )
+      ),
+      showFilters&&React.createElement("div",{style:{...S.card,marginBottom:12,padding:14}},
+        React.createElement("p",{style:{...S.label,marginBottom:8}},"Category"),
+        React.createElement("div",{style:{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}},
+          React.createElement("button",{style:S.pill(!filterCat,"#4ade9e"),onClick:()=>setFilterCat("")},"All"),
+          ["needs","wants","savings"].map(c=>
+            React.createElement("button",{key:c,style:S.pill(filterCat===c,CAT_COLOR[c]),onClick:()=>setFilterCat(filterCat===c?"":c)},
+              c.charAt(0).toUpperCase()+c.slice(1))
+          )
+        ),
+        React.createElement("p",{style:{...S.label,marginBottom:8}},"Sort by"),
+        React.createElement("div",{style:{display:"flex",gap:6,flexWrap:"wrap"}},
+          [["date","Date ↓"],["amount_desc","Amount ↓"],["amount_asc","Amount ↑"]].map(([val,label])=>
+            React.createElement("button",{key:val,style:S.pill(sortBy===val,"#1E88E5"),onClick:()=>setSortBy(val)},label)
+          )
+        ),
+        hasActiveFilters&&React.createElement("button",{
+          style:{...S.ghost,width:"100%",marginTop:12,fontSize:12,padding:"8px",color:"rgba(255,255,255,0.4)"},
+          onClick:()=>{setFilterCat("");setSortBy("date");}},
+          "Reset filters")
       ),
       activeType==="recurring"&&React.createElement("div",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:14,padding:"8px 12px",background:"rgba(255,255,255,0.03)",borderRadius:10,lineHeight:1.5}},
         React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.pin,size:12,stroke:"rgba(255,255,255,0.35)"}), " Fixed expenses are always counted in your budget, every period.")),
       activeType==="daily"&&React.createElement("div",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:14,padding:"8px 12px",background:"rgba(255,255,255,0.03)",borderRadius:10,lineHeight:1.5}},
         React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.calendar,size:12,stroke:"rgba(255,255,255,0.35)"}), " "),React.createElement("strong",{style:{color:"rgba(255,255,255,0.5)"}},monthLabel)," — variable expenses reset when your next salary arrives."),
-
+      (search||filterCat)&&React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:10}},`${list.length} result${list.length!==1?"s":""}`),
       list.length===0 ? React.createElement("div",{style:{...S.card,textAlign:"center",padding:"36px 20px"}},
-        React.createElement("p",{style:{fontWeight:700}},`No ${activeType==="recurring"?"fixed":"variable"} expenses yet`),
+        React.createElement("p",{style:{fontWeight:700}},search||filterCat?"No expenses match your search":`No ${activeType==="recurring"?"fixed":"variable"} expenses yet`),
         React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginTop:6}},
-          activeType==="recurring"?"Add fixed costs like rent, subscriptions, utilities":"Add today's purchases or scan a receipt")
-      ) : activeType==="recurring" ?
-        // Fixed — no grouping
-        list.map(exp=>React.createElement(ExpenseRow,{key:exp.id,exp}))
-      :
-        // Variable — grouped by date
+          search||filterCat?"Try different search terms or filters":activeType==="recurring"?"Add fixed costs like rent, subscriptions, utilities":"Add today's purchases or scan a receipt")
+      ) : useGrouping ?
         grouped.map(group=>
           React.createElement(React.Fragment,{key:group.label},
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8,marginTop:4}},
@@ -1802,9 +1846,8 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
             group.items.map(exp=>React.createElement(ExpenseRow,{key:exp.id,exp})),
             React.createElement("div",{style:{marginBottom:8}})
           )
-        ),
-
-
+        )
+      : list.map(exp=>React.createElement(ExpenseRow,{key:exp.id,exp}))
     )
   );
 }
