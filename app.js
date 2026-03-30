@@ -2482,7 +2482,7 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
 // ─────────────────────────────────────────────────────────────────────────────
 // Family Members Manager
 // ─────────────────────────────────────────────────────────────────────────────
-function FamilyMembers({budget, token, plan}) {
+function FamilyMembers({budget, token, plan, isOwner}) {
   const [members, setMembers]   = useState([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [loading, setLoading]   = useState(false);
@@ -2512,6 +2512,9 @@ function FamilyMembers({budget, token, plan}) {
         invited_by: budget.owner_id,
         email: inviteEmail,
       });
+      // Mark budget as shared
+      const budDb = await sb.from("budgets", token);
+      await budDb.update({ is_shared: true }, `id=eq.${budget.id}`);
       const invite = Array.isArray(result) ? result[0] : null;
       if (!invite) { setMsg("Error creating invite. Try again."); setLoading(false); return; }
 
@@ -2565,8 +2568,8 @@ function FamilyMembers({budget, token, plan}) {
       )
     ),
 
-    // Invite form
-    members.length < 5 && React.createElement("div",null,
+    // Invite form — only for owners
+    isOwner && members.length < 5 && React.createElement("div",null,
       React.createElement("label",{style:S.label},"Invite by email"),
       React.createElement("div",{style:{display:"flex",gap:8}},
         React.createElement("input",{style:{...S.input,flex:1,fontSize:13,padding:"10px 12px"},
@@ -2651,11 +2654,17 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
           React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)"}},user?.email)
         )
       ),
-      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:10,background:`rgba(${rgb(planColor==="rgba(255,255,255,0.4)"?"255,255,255":"74,222,158")},0.08)`,marginBottom:profile?.plan!=="family"?12:0}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,padding:"10px 14px",borderRadius:10,background:`rgba(${rgb(planColor==="rgba(255,255,255,0.4)"?"255,255,255":"74,222,158")},0.08)`,marginBottom:12}},
         React.createElement(Icon,{d:IC.crown,size:16,stroke:planColor}),
-        React.createElement("span",{style:{fontSize:13,fontWeight:700,color:planColor}},
-          profile?.plan==="pro"?"Budgie Pro":profile?.plan==="family"?"Budgie Family":"Free Plan"),
-        profile?.plan!=="free"&&profile?.plan_expires_at&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginLeft:"auto"}},
+        React.createElement("div",{style:{flex:1}},
+          React.createElement("p",{style:{fontSize:13,fontWeight:700,color:planColor}},
+            profile?.plan==="pro"?"Budgie Pro":
+            profile?.plan==="family"&&profile?.family_role==="member"?"Budgie Family · Member":
+            profile?.plan==="family"?"Budgie Family · Owner":"Free Plan"),
+          profile?.plan==="family"&&profile?.family_role==="member"&&
+            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",marginTop:1}},"Invited by a family owner")
+        ),
+        profile?.plan!=="free"&&profile?.plan_expires_at&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},
           "Renews ",new Date(profile.plan_expires_at).toLocaleDateString())
       ),
       profile?.plan==="free"&&React.createElement("div",{style:{display:"flex",gap:8,marginTop:0}},
@@ -2665,14 +2674,17 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
           React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.family,size:13,stroke:"#0a0a0f"}), " Family €4.99/mo"))
       ),
       profile?.plan==="pro"&&React.createElement("button",{style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%"},onClick:onUpgrade},
-        React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.family,size:14,stroke:"#0a0a0f"}), " Switch to Family Plan"))
+        React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.family,size:14,stroke:"#0a0a0f"}), " Switch to Family Plan")),
+      profile?.plan==="family"&&profile?.family_role==="member"&&
+        React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",textAlign:"center",padding:"4px 0"}},
+          "You're a member of a Family plan")
     ),
 
     // Currency & Income settings
     React.createElement(CurrencySettings,{budget,token,rates,updateBudget:onUpdateBudget}),
 
     // Family members section
-    profile?.plan==="family" && React.createElement(FamilyMembers,{budget,token,plan:profile?.plan}),
+    profile?.plan==="family" && React.createElement(FamilyMembers,{budget,token,plan:profile?.plan,isOwner:!profile?.family_role||profile?.family_role==="owner"}),
 
     // AI Credits display
     React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
@@ -2825,6 +2837,10 @@ function BudgetApp() {
       // Mark invite accepted
       await db.update({ status: "accepted" }, `id=eq.${invite.id}`);
 
+      // Mark user as family member (not owner)
+      const profDb = await sb.from("profiles", authToken);
+      await profDb.update({ family_role: "member", plan: "family", invited_by_user: invite.invited_by }, `id=eq.${user.id}`);
+
       // Reload data to show the shared budget
       await loadUserData(authToken);
       alert("✓ You joined the shared budget!");
@@ -2904,7 +2920,9 @@ function BudgetApp() {
           }
         }
       } catch(e) { console.error("profile load error:", e); }
-      console.log("final profile:", prof);
+      // Determine family_role
+      if (prof.plan === "family" && !prof.family_role) prof.family_role = "owner";
+      console.log("final profile:", prof, "family_role:", prof.family_role);
       setProfile(prof);
 
       // Load notification preferences
@@ -2930,13 +2948,27 @@ function BudgetApp() {
         setAiCredits(cred?.credits ?? 0);
       } catch(e) { setAiCredits(0); }
 
-      // Step 3: get all budgets
+      // Step 3: get all budgets (own + shared ones user is member of)
       let bud = null;
       let allBudgets = [];
       try {
         const budgetDb = await sb.from("budgets", token);
-        const budgetList = await budgetDb.select("*", `owner_id=eq.${userData.id}&order=created_at.asc`);
-        allBudgets = Array.isArray(budgetList) ? budgetList : [];
+        // Own budgets
+        const ownBudgets = await budgetDb.select("*", `owner_id=eq.${userData.id}&order=created_at.asc`);
+        // Budgets user is a member of (shared by others)
+        const memberDb2 = await sb.from("budget_members", token);
+        const memberships = await memberDb2.select("budget_id", `user_id=eq.${userData.id}&role=eq.member`);
+        let sharedBudgets = [];
+        if (Array.isArray(memberships) && memberships.length > 0) {
+          const ids = memberships.map(m => m.budget_id);
+          for (const bid of ids) {
+            try {
+              const rows = await budgetDb.select("*", `id=eq.${bid}`);
+              if (Array.isArray(rows) && rows[0]) sharedBudgets.push({...rows[0], _shared: true});
+            } catch(e) {}
+          }
+        }
+        allBudgets = [...(Array.isArray(ownBudgets)?ownBudgets:[]), ...sharedBudgets];
         setBudgets(allBudgets);
         bud = allBudgets.length > 0 ? allBudgets[0] : null;
       } catch(e) { console.error("budget load error:", e); }
@@ -3096,6 +3128,7 @@ function BudgetApp() {
         monthly_income_ron: extra.monthly_income_ron || 0,
         payday: extra.payday || budget?.payday || 1,
         current_period: getPeriodKey(extra.payday || budget?.payday || 1),
+        is_shared: false,
         settings: { onboardingDone: true },
       });
       const newBud = Array.isArray(result) ? result[0] : null;
@@ -3312,7 +3345,10 @@ function BudgetApp() {
             React.createElement("div",{style:{width:36,height:36,borderRadius:10,background:b.id===budget?.id?"rgba(74,222,158,0.15)":"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center"}},
               React.createElement(Icon,{d:IC.wallet,size:16,stroke:b.id===budget?.id?"#4ade9e":"rgba(255,255,255,0.4)"})),
             React.createElement("div",{style:{flex:1}},
-              React.createElement("p",{style:{fontWeight:700,fontSize:14,color:b.id===budget?.id?"#4ade9e":"#f0f0f5"}},b.name),
+              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                React.createElement("p",{style:{fontWeight:700,fontSize:14,color:b.id===budget?.id?"#4ade9e":"#f0f0f5"}},b.name),
+                b._shared&&React.createElement("span",{style:{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(74,222,158,0.15)",color:"#4ade9e",fontWeight:700}},"SHARED")
+              ),
               React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},
                 b.income_currency||"RON"," · ",b.payday?"Payday "+b.payday:"No payday set")
             ),
