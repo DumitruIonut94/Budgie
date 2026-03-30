@@ -1141,6 +1141,7 @@ function LineItemsSelector({scanResult, form, fmt, classify, onConfirmItems, onC
 function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scanResult,scanError,onScanFile,onConfirmScan,onCancelScan,onRetryScan,onConfirmItems,rates,incomeCurrency,budgets,activeBudgetId,aiCredits,onBuyCredits}) {
   const fileRef=useRef(), cameraRef=useRef();
   const [scanMode, setScanMode] = useState("simple");
+  const [scanModeInfo, setScanModeInfo] = useState(false);
   const type = modal;
   const needsRate = form.currency !== incomeCurrency;
   const rateFrom = incomeCurrency==="EUR" ? form.currency : incomeCurrency;
@@ -1216,9 +1217,36 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
             aiCredits<=0&&e("button",{style:{fontSize:11,color:"#4ade9e",background:"none",border:"none",cursor:"pointer",fontWeight:700},
               onClick:onBuyCredits},"Buy credits →")
           ),
-          // Scan mode selector
+          // Scan mode selector with info tooltips
           aiCredits>0&&e("div",{style:{marginBottom:12}},
-            e("label",{style:S.label},"Scan mode"),
+            e("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:8}},
+              e("label",{style:{...S.label,marginBottom:0}},"Scan mode"),
+              e("button",{
+                style:{background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.3)",padding:2,display:"flex"},
+                onClick:()=>setScanModeInfo(!scanModeInfo)},
+                e(Icon,{d:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01",size:15,stroke:"rgba(255,255,255,0.4)"})
+              )
+            ),
+            scanModeInfo&&e("div",{style:{...S.card,marginBottom:10,padding:14,background:"rgba(255,255,255,0.03)"}},
+              e("div",{style:{marginBottom:10}},
+                e("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:4}},
+                  e("div",{style:{width:8,height:8,borderRadius:99,background:"#43A047",flexShrink:0}}),
+                  e("p",{style:{fontWeight:700,fontSize:13,color:"#43A047"}},"Simple — Total only")
+                ),
+                e("p",{style:{fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.5,paddingLeft:14}},
+                  "Extracts the merchant name, total amount, currency and date. Best for quick everyday expense logging.")
+              ),
+              e("div",null,
+                e("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:4}},
+                  e("div",{style:{width:8,height:8,borderRadius:99,background:"#1E88E5",flexShrink:0}}),
+                  e("p",{style:{fontWeight:700,fontSize:13,color:"#1E88E5"}},"Detailed — Line items")
+                ),
+                e("p",{style:{fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.5,paddingLeft:14}},
+                  "Extracts every individual item from the receipt or invoice — name, quantity and price. Perfect for business expenses, invoices or splitting a bill.")
+              ),
+              e("button",{style:{...S.ghost,width:"100%",marginTop:10,fontSize:12,padding:"8px"},
+                onClick:()=>setScanModeInfo(false)},"Got it")
+            ),
             e("div",{style:{display:"flex",gap:8}},
               e("button",{style:S.pill(scanMode==="simple","#43A047"),onClick:()=>setScanMode("simple")},"Simple (total only)"),
               e("button",{style:S.pill(scanMode==="detailed","#1E88E5"),onClick:()=>setScanMode("detailed")},"Detailed (line items)")
