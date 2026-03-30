@@ -1295,7 +1295,134 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
 // ─────────────────────────────────────────────────────────────────────────────
 // Home Tab
 // ─────────────────────────────────────────────────────────────────────────────
-function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName,onOpenBudgetPicker,budgetsCount,budgetName,onSwitchTab}) {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BudgetMethodCard — shown once after first login
+// ─────────────────────────────────────────────────────────────────────────────
+function BudgetMethodCard({onDismiss}) {
+  return React.createElement("div",{style:{
+    position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",zIndex:500,
+    display:"flex",alignItems:"flex-end",backdropFilter:"blur(4px)"}},
+    React.createElement("div",{style:{
+      background:"#13131f",borderRadius:"24px 24px 0 0",padding:"28px 20px 40px",
+      width:"100%",maxWidth:480,margin:"0 auto",
+      border:"1px solid rgba(255,255,255,0.08)"}},
+      React.createElement("div",{style:{textAlign:"center",marginBottom:20}},
+        React.createElement("div",{style:{
+          width:56,height:56,borderRadius:99,
+          background:"linear-gradient(135deg,#f97316,#1E88E5,#43A047)",
+          display:"flex",alignItems:"center",justifyContent:"center",
+          margin:"0 auto 12px"}},
+          React.createElement(Icon,{d:IC.wallet,size:24,stroke:"#fff"})
+        ),
+        React.createElement("h3",{style:{fontWeight:900,fontSize:20,marginBottom:6}},
+          "The 50-30-20 Rule"),
+        React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.5)",lineHeight:1.6}},
+          "A simple way to balance your budget every month")
+      ),
+      [
+        {color:"#f97316",pct:"50%",name:"Needs",icon:IC.home,
+          desc:"Essential expenses you can't avoid",
+          examples:"Rent, utilities, groceries, transport, insurance, healthcare"},
+        {color:"#1E88E5",pct:"30%",name:"Wants",icon:IC.sparkle,
+          desc:"Things you enjoy but don't strictly need",
+          examples:"Dining out, Netflix, shopping, travel, hobbies"},
+        {color:"#43A047",pct:"20%",name:"Savings",icon:IC.wallet,
+          desc:"Money you put aside for the future",
+          examples:"Emergency fund, investments, debt repayment, goals"},
+      ].map(item=>
+        React.createElement("div",{key:item.name,style:{
+          display:"flex",gap:12,marginBottom:14,padding:"12px 14px",
+          borderRadius:14,background:`rgba(${rgb(item.color)},0.06)`,
+          border:`1px solid rgba(${rgb(item.color)},0.15)`}},
+          React.createElement("div",{style:{
+            width:38,height:38,borderRadius:10,flexShrink:0,
+            background:`rgba(${rgb(item.color)},0.12)`,
+            display:"flex",alignItems:"center",justifyContent:"center"}},
+            React.createElement(Icon,{d:item.icon,size:18,stroke:item.color})
+          ),
+          React.createElement("div",null,
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6,marginBottom:2}},
+              React.createElement("span",{style:{fontWeight:800,fontSize:15,color:item.color}},item.pct),
+              React.createElement("span",{style:{fontWeight:700,fontSize:15}}," ",item.name)
+            ),
+            React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.5)",marginBottom:3}},item.desc),
+            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontStyle:"italic"}},item.examples)
+          )
+        )
+      ),
+      React.createElement("button",{
+        style:{...S.btn("#4ade9e",true),color:"#0a0a0f",marginTop:8,fontSize:15},
+        onClick:onDismiss},"Got it! Let's start budgeting →")
+    )
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CategoryTooltip — shown on tap on a circle
+// ─────────────────────────────────────────────────────────────────────────────
+const CATEGORY_INFO = {
+  needs: {
+    color:"#f97316", pct:"50%", name:"Needs", icon:IC.home,
+    desc:"Essential expenses you can't avoid — things you need to live and work.",
+    examples:["Rent / Mortgage","Utilities & bills","Groceries","Transport","Insurance","Healthcare"],
+  },
+  wants: {
+    color:"#1E88E5", pct:"30%", name:"Wants", icon:IC.sparkle,
+    desc:"Lifestyle expenses that improve your life but aren't strictly necessary.",
+    examples:["Dining out","Entertainment","Shopping","Subscriptions","Travel","Hobbies"],
+  },
+  savings: {
+    color:"#43A047", pct:"20%", name:"Savings", icon:IC.wallet,
+    desc:"Money you set aside to build security and reach future goals.",
+    examples:["Emergency fund","Investments","Retirement","Debt repayment","Goals"],
+  },
+};
+
+function CategoryTooltip({cat, onClose}) {
+  if (!cat) return null;
+  const info = CATEGORY_INFO[cat];
+  if (!info) return null;
+  return React.createElement("div",{
+    style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:400,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",
+      backdropFilter:"blur(4px)"},
+    onClick:onClose},
+    React.createElement("div",{
+      style:{background:"#13131f",borderRadius:20,padding:"24px 20px",
+        width:"100%",maxWidth:340,border:`1px solid rgba(${rgb(info.color)},0.3)`},
+      onClick:e=>e.stopPropagation()},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
+          React.createElement("div",{style:{width:40,height:40,borderRadius:12,
+            background:`rgba(${rgb(info.color)},0.12)`,
+            display:"flex",alignItems:"center",justifyContent:"center"}},
+            React.createElement(Icon,{d:info.icon,size:20,stroke:info.color})
+          ),
+          React.createElement("div",null,
+            React.createElement("p",{style:{fontWeight:900,fontSize:18,color:info.color}},info.name),
+            React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)"}},"Budget: ",info.pct," of income")
+          )
+        ),
+        React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.4)",cursor:"pointer"},onClick:onClose},
+          React.createElement(Icon,{d:IC.x,size:20}))
+      ),
+      React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.6)",marginBottom:14,lineHeight:1.6}},info.desc),
+      React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.3)",textTransform:"uppercase",letterSpacing:"0.8px",marginBottom:8}},"Examples"),
+      React.createElement("div",{style:{display:"flex",flexWrap:"wrap",gap:6}},
+        info.examples.map(ex=>
+          React.createElement("span",{key:ex,style:{
+            fontSize:11,padding:"4px 10px",borderRadius:99,
+            background:`rgba(${rgb(info.color)},0.1)`,
+            color:info.color,fontWeight:600}},ex)
+        )
+      ),
+      React.createElement("button",{style:{...S.ghost,width:"100%",marginTop:16,fontSize:13},onClick:onClose},"Got it")
+    )
+  );
+}
+
+function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses,onOpenRates,plan,onUpgrade,userName,onOpenBudgetPicker,budgetsCount,budgetName,onSwitchTab,onCatInfo}) {
   const [editingIncome,setEditingIncome]=useState(false);
   const [incomeInput,setIncomeInput]=useState("");
   const income=parseFloat(budget?.monthly_income)||0;
@@ -1360,7 +1487,9 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
            {key:"wants",label:"Wants",pct:30,budget:income*0.3,color:"#1E88E5"},
            {key:"savings",label:"Savings",pct:20,budget:income*0.2,color:"#43A047"}].map(item=>{
             const spent=spentByType[item.key]||0, rem=item.budget-spent;
-            return React.createElement("div",{key:item.key,style:{...S.card,padding:"14px 10px",textAlign:"center"}},
+            return React.createElement("div",{key:item.key,
+              style:{...S.card,padding:"14px 10px",textAlign:"center",cursor:"pointer"},
+              onClick:()=>onCatInfo&&onCatInfo(item.key)},
               React.createElement("div",{style:{position:"relative",display:"inline-block",marginBottom:8}},
                 React.createElement(CircleProgress,{pct:item.budget>0?(spent/item.budget)*100:0,color:item.color,size:62,stroke:5}),
                 React.createElement("div",{style:{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}},
@@ -2187,6 +2316,8 @@ function BudgetApp() {
     budget_alerts: true, payday_reset: true,
     daily_reminder: true, weekly_summary: true,
   });
+  const [showMethodCard, setShowMethodCard] = useState(false);
+  const [activeCatTooltip, setActiveCatTooltip] = useState(null); // "needs"|"wants"|"savings"
 
   // ── Auth check on mount ──────────────────────────────────────────────────
   // Check for invite token in URL
@@ -2427,9 +2558,11 @@ function BudgetApp() {
 
   async function handleOnboardingComplete(data) {
     setDataLoading(true);
+    // Show 50-30-20 explanation card
+    setShowMethodCard(true);
     // Request push permission after onboarding
     if (user?.id) {
-      setTimeout(() => requestPushPermission(authToken, user.id), 2000);
+      setTimeout(() => requestPushPermission(authToken, user.id), 4000);
     }
     try {
       const budgetDb = await sb.from("budgets", authToken);
@@ -2762,7 +2895,7 @@ function BudgetApp() {
   return React.createElement("div",{style:S.app},
     React.createElement("style",null,globalStyles),
 
-    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab}),
+    tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab,onCatInfo:setActiveCatTooltip}),
     tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
     tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif}),
@@ -2776,6 +2909,8 @@ function BudgetApp() {
 
     React.createElement(ExpenseModal,{modal,onClose:()=>{setModal(null);setEditingExpense(null);},form,setForm,onAdd:addExpense,isEditing:!!editingExpense,scanState,scanResult,scanError,onScanFile:handleScanFile,onConfirmScan:confirmScan,onCancelScan:cancelScan,onRetryScan:retryScan,onConfirmItems:confirmItems,rates,incomeCurrency,budgets,activeBudgetId:budget?.id,aiCredits,onBuyCredits:()=>setTab("account")}),
     showBudgetPicker && React.createElement(BudgetPicker,null),
+    showMethodCard && React.createElement(BudgetMethodCard,{onDismiss:()=>setShowMethodCard(false)}),
+    activeCatTooltip && React.createElement(CategoryTooltip,{cat:activeCatTooltip,onClose:()=>setActiveCatTooltip(null)}),
     React.createElement(RatesModal,{show:showRates,onClose:()=>setShowRates(false),rates,liveRates,ratesLoading,onSave:(cur,val)=>updateBudget({rates:{...(budget?.rates||{}),[cur]:val}}),onResetToLive:(cur)=>updateBudget({rates:{...(budget?.rates||{}),  [cur]:liveRates[cur]}})}),
     React.createElement(PaydayResetModal,{show:showPaydayReset,userName:profile?.name,income:budget?.monthly_income,currency:incomeCurrency,rates,
       onKeep:()=>setShowPaydayReset(false),
