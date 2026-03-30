@@ -213,7 +213,7 @@ const sb = (() => {
 // ─────────────────────────────────────────────────────────────────────────────
 const CURRENCIES = ["RON", "EUR", "USD"];
 const CUR_SYM    = { RON: "lei", EUR: "€", USD: "$" };
-const CUR_COLOR  = { RON: "#e94560", EUR: "#0fbcf9", USD: "#f5a623" };
+const CUR_COLOR  = { RON: "#e94560", EUR: "#43A047", USD: "#1E88E5" };
 const DEFAULT_RATES = { RON: 1, EUR: 5.09, USD: 4.41 };
 
 const PLAN_LIMITS = {
@@ -227,7 +227,7 @@ const CATEGORIES = {
   wants:   ["Dining Out","Entertainment","Shopping","Subscriptions","Travel","Hobbies"],
   savings: ["Emergency Fund","Investments","Retirement","Debt Repayment","Goals"],
 };
-const CAT_COLOR = { needs: "#f97316", wants: "#f5a623", savings: "#0fbcf9" };
+const CAT_COLOR = { needs: "#f97316", wants: "#1E88E5", savings: "#43A047" };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Push Notifications
@@ -479,7 +479,7 @@ function BudgieLogo({size=40}) {
     React.createElement("defs",null,
       React.createElement("linearGradient",{id:"bodyGrad",x1:"10",y1:"10",x2:"54",y2:"54",gradientUnits:"userSpaceOnUse"},
         React.createElement("stop",{offset:"0%",stopColor:"#4ade9e"}),
-        React.createElement("stop",{offset:"100%",stopColor:"#0fbcf9"}))),
+        React.createElement("stop",{offset:"100%",stopColor:"#43A047"}))),
     React.createElement("ellipse",{cx:"34",cy:"40",rx:"18",ry:"20",fill:"url(#bodyGrad)"}),
     React.createElement("ellipse",{cx:"35",cy:"46",rx:"10",ry:"12",fill:"#fffbe6",opacity:"0.9"}),
     React.createElement("ellipse",{cx:"20",cy:"38",rx:"10",ry:"16",fill:"#22d4a0",transform:"rotate(-15 20 38)"}),
@@ -488,8 +488,8 @@ function BudgieLogo({size=40}) {
     React.createElement("circle",{cx:"40",cy:"15",r:"4",fill:"#fff"}),
     React.createElement("circle",{cx:"41",cy:"15",r:"2.2",fill:"#1e293b"}),
     React.createElement("circle",{cx:"42",cy:"14",r:"0.8",fill:"#fff"}),
-    React.createElement("path",{d:"M33 20 L28 23 L33 25 Z",fill:"#f5a623"}),
-    React.createElement("circle",{cx:"54",cy:"12",r:"7",fill:"#f5a623",opacity:"0.95"}),
+    React.createElement("path",{d:"M33 20 L28 23 L33 25 Z",fill:"#1E88E5"}),
+    React.createElement("circle",{cx:"54",cy:"12",r:"7",fill:"#1E88E5",opacity:"0.95"}),
     React.createElement("text",{x:"54",y:"16",textAnchor:"middle",fontSize:"8",fontWeight:"bold",fill:"#fff"},"$")
   );
 }
@@ -563,7 +563,7 @@ function AuthScreen({onAuth}) {
       // Logo
       React.createElement("div",{style:{textAlign:"center",marginBottom:32}},
         React.createElement(BudgieLogo,{size:60}),
-        React.createElement("p",{style:{fontSize:28,fontWeight:900,marginTop:12,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",display:"inline-block",paddingRight:4}},"Budgie"),
+        React.createElement("p",{style:{fontSize:28,fontWeight:900,marginTop:12,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",display:"inline-block",paddingRight:4}},"Budgie"),
         React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.35)",marginTop:2}},
           mode==="login"?"Welcome back!" : mode==="register"?"Create your account" : "Reset your password")
       ),
@@ -657,7 +657,7 @@ function UpgradeScreen({token, currentPlan, onClose}) {
 
   const plans = [
     {
-      key: "pro", name: "Pro", color: "#0fbcf9",
+      key: "pro", name: "Pro", color: "#43A047",
       monthlyPrice: "€2.99", yearlyPrice: "€29.99",
       yearlyMonthly: "€2.50",
       features: ["Unlimited budgets","Full spending history","CSV & PDF export","Cloud backup & sync"],
@@ -786,7 +786,7 @@ function Onboarding({userName, onComplete}) {
   function renderStep() {
     if (step === 0) return React.createElement("div",{style:{textAlign:"center"}},
       React.createElement(BudgieLogo,{size:80}),
-      React.createElement("h1",{style:{fontSize:28,fontWeight:900,marginTop:16,marginBottom:8,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",display:"inline-block",paddingRight:4}},"Welcome, ",userName,"!"),
+      React.createElement("h1",{style:{fontSize:28,fontWeight:900,marginTop:16,marginBottom:8,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",display:"inline-block",paddingRight:4}},"Welcome, ",userName,"!"),
       React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",lineHeight:1.6}},"Let's set up your budget in a few quick steps.")
     );
 
@@ -816,7 +816,7 @@ function Onboarding({userName, onComplete}) {
         type:"number",value:income,onChange:e=>setIncome(e.target.value),placeholder:"0",
         onKeyDown:e=>{if(e.key==="Enter")handleNext();}}),
       (income && parseFloat(income)>0) ? React.createElement("div",{style:{marginTop:14,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}},
-        [["Needs","50%",parseFloat(income)*0.5,"#e94560"],["Wants","30%",parseFloat(income)*0.3,"#f5a623"],["Savings","20%",parseFloat(income)*0.2,"#0fbcf9"]].map(([l,p,v,c])=>
+        [["Needs","50%",parseFloat(income)*0.5,"#e94560"],["Wants","30%",parseFloat(income)*0.3,"#1E88E5"],["Savings","20%",parseFloat(income)*0.2,"#43A047"]].map(([l,p,v,c])=>
           React.createElement("div",{key:l,style:{background:`rgba(${rgb(c)},0.08)`,borderRadius:12,padding:"10px 8px",textAlign:"center",border:`1px solid rgba(${rgb(c)},0.2)`}},
             React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.4)",fontWeight:700,textTransform:"uppercase"}},l),
             React.createElement("p",{style:{fontSize:15,fontWeight:800,color:c,marginTop:2}},p),
@@ -925,7 +925,7 @@ function RatesModal({show,onClose,rates,liveRates,ratesLoading,onSave,onResetToL
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:16,padding:"8px 12px",borderRadius:10,
         background:liveRates?"rgba(74,222,158,0.08)":"rgba(255,255,255,0.04)",
         border:`1px solid ${liveRates?"rgba(74,222,158,0.2)":"rgba(255,255,255,0.07)"}`}},
-        React.createElement("div",{style:{width:7,height:7,borderRadius:99,flexShrink:0,background:ratesLoading?"#f5a623":liveRates?"#4ade9e":"rgba(255,255,255,0.2)",boxShadow:liveRates?"0 0 6px #4ade9e":"none"}}),
+        React.createElement("div",{style:{width:7,height:7,borderRadius:99,flexShrink:0,background:ratesLoading?"#1E88E5":liveRates?"#4ade9e":"rgba(255,255,255,0.2)",boxShadow:liveRates?"0 0 6px #4ade9e":"none"}}),
         React.createElement("p",{style:{fontSize:12,color:liveRates?"rgba(255,255,255,0.6)":"rgba(255,255,255,0.3)"}},
           ratesLoading?"Fetching live rates...":liveRates?`Live rates · ECB · ${liveRates.date}`:"Could not fetch live rates — using manual values")
       ),
@@ -944,7 +944,7 @@ function RatesModal({show,onClose,rates,liveRates,ratesLoading,onSave,onResetToL
             React.createElement("input",{style:{...S.input,flex:1,fontSize:14,padding:"9px 12px"},
               type:"number",step:"0.0001",placeholder:`e.g. ${ph}`,value:edit[cur],
               onChange:e=>setEdit(v=>({...v,[cur]:e.target.value}))}),
-            React.createElement("button",{style:S.btn("#0fbcf9"),onClick:()=>{
+            React.createElement("button",{style:S.btn("#43A047"),onClick:()=>{
               const val=parseFloat(edit[cur]);
               if(!isNaN(val)&&val>0){onSave(cur,val);setEdit(v=>({...v,[cur]:""}))}
             }},"Set"),
@@ -965,7 +965,7 @@ function RatesModal({show,onClose,rates,liveRates,ratesLoading,onSave,onResetToL
             React.createElement("input",{style:{...S.input,flex:1,fontSize:14,padding:"9px 12px"},
               type:"number",step:"0.0001",placeholder:derived.toFixed(4),value:edit[key],
               onChange:e=>setEdit(v=>({...v,[key]:e.target.value}))}),
-            React.createElement("button",{style:S.btn("#f5a623"),onClick:()=>{
+            React.createElement("button",{style:S.btn("#1E88E5"),onClick:()=>{
               const v=parseFloat(edit[key]);
               if(!isNaN(v)&&v>0){
                 const fromRON=from==="RON"?1:(rates[from]||DEFAULT_RATES[from]);
@@ -1027,7 +1027,7 @@ function LineItemsSelector({scanResult, form, fmt, classify, onConfirmItems, onC
           scanResult.date||"", scanResult.date?" · ":"",
           `${items.length} items found`)
       ),
-      React.createElement("p",{style:{fontSize:18,fontWeight:900,color:"#0fbcf9"}},
+      React.createElement("p",{style:{fontSize:18,fontWeight:900,color:"#43A047"}},
         fmt(scanResult.total||0, form.currency))
     ),
 
@@ -1051,8 +1051,8 @@ function LineItemsSelector({scanResult, form, fmt, classify, onConfirmItems, onC
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
             // Checkbox
             React.createElement("button",{
-              style:{width:22,height:22,borderRadius:6,border:`2px solid ${item.selected?"#0fbcf9":"rgba(255,255,255,0.2)"}`,
-                background:item.selected?"#0fbcf9":"transparent",flexShrink:0,cursor:"pointer",
+              style:{width:22,height:22,borderRadius:6,border:`2px solid ${item.selected?"#43A047":"rgba(255,255,255,0.2)"}`,
+                background:item.selected?"#43A047":"transparent",flexShrink:0,cursor:"pointer",
                 display:"flex",alignItems:"center",justifyContent:"center"},
               onClick:()=>toggleItem(item.id)},
               item.selected && React.createElement(Icon,{d:IC.check,size:12,stroke:"#fff"})
@@ -1065,13 +1065,13 @@ function LineItemsSelector({scanResult, form, fmt, classify, onConfirmItems, onC
                 item.qty&&item.qty>1?`${item.qty}x · `:"", item.editSubcat||item.editCategory)
             ),
             // Amount
-            React.createElement("p",{style:{fontWeight:800,fontSize:14,color:"#0fbcf9",flexShrink:0}},
+            React.createElement("p",{style:{fontWeight:800,fontSize:14,color:"#43A047",flexShrink:0}},
               fmt(parseFloat(item.editAmount)||0, form.currency)),
             // Type toggle
             React.createElement("button",{
               style:{fontSize:10,fontWeight:700,padding:"3px 8px",borderRadius:99,border:"none",cursor:"pointer",
                 background:item.type==="recurring"?"rgba(233,69,96,0.15)":"rgba(245,166,35,0.15)",
-                color:item.type==="recurring"?"#e94560":"#f5a623"},
+                color:item.type==="recurring"?"#e94560":"#1E88E5"},
               onClick:()=>updateItem(item.id,"type",item.type==="recurring"?"daily":"recurring")},
               item.type==="recurring"?"Fixed":"Var."
             ),
@@ -1118,13 +1118,13 @@ function LineItemsSelector({scanResult, form, fmt, classify, onConfirmItems, onC
     React.createElement("div",{style:{...S.card,marginBottom:12,padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}},
       React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.5)"}},
         `${selectedCount} item${selectedCount!==1?"s":""} selected`),
-      React.createElement("p",{style:{fontWeight:800,color:"#0fbcf9"}},
+      React.createElement("p",{style:{fontWeight:800,color:"#43A047"}},
         fmt(selectedTotal, form.currency))
     ),
 
     React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.35)",marginBottom:8,textAlign:"center"}},
       "Tap ",React.createElement("span",{style:{color:"#e94560",fontWeight:700}},"Fixed"),
-      " / ",React.createElement("span",{style:{color:"#f5a623",fontWeight:700}},"Var."),
+      " / ",React.createElement("span",{style:{color:"#1E88E5",fontWeight:700}},"Var."),
       " on each item to set type individually"),
     React.createElement("div",{style:{display:"flex",gap:8}},
       React.createElement("button",{
@@ -1169,7 +1169,7 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
         // Simple mode result
         scanResult.mode!=="detailed"&&e(React.Fragment,null,
           e("div",{style:{...S.card,marginBottom:20,background:"rgba(15,188,249,0.06)",border:"1px solid rgba(15,188,249,0.2)"}},
-            [["Merchant",scanResult.name,"#f0f0f5"],["Amount",fmt(parseFloat(scanResult.amount)||0,form.currency),"#0fbcf9"],["Category",scanResult.category,"#f0f0f5"]].map(([k,v,c])=>
+            [["Merchant",scanResult.name,"#f0f0f5"],["Amount",fmt(parseFloat(scanResult.amount)||0,form.currency),"#43A047"],["Category",scanResult.category,"#f0f0f5"]].map(([k,v,c])=>
               e("div",{key:k,style:{display:"flex",justifyContent:"space-between",marginBottom:8}},
                 e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase"}},k),
                 e("span",{style:{fontWeight:700,color:c}},v)
@@ -1177,13 +1177,13 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
             ),
             convertedPreview!==null&&e("div",{style:{borderTop:"1px solid rgba(255,255,255,0.08)",paddingTop:8,marginTop:4,display:"flex",justifyContent:"space-between"}},
               e("span",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",fontWeight:600,textTransform:"uppercase"}},"Converted"),
-              e("span",{style:{fontWeight:700,color:"#f5a623"}},"≈ ",fmt(convertedPreview,incomeCurrency))
+              e("span",{style:{fontWeight:700,color:"#1E88E5"}},"≈ ",fmt(convertedPreview,incomeCurrency))
             )
           ),
           e("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",marginBottom:14}},"Save as:"),
           e("div",{style:{display:"flex",gap:10}},
             e("button",{style:S.btn("#e94560"),onClick:()=>onConfirmScan("recurring")},"Fixed"),
-            e("button",{style:S.btn("#f5a623"),onClick:()=>onConfirmScan("daily")},"Variable"),
+            e("button",{style:S.btn("#1E88E5"),onClick:()=>onConfirmScan("daily")},"Variable"),
             e("button",{style:S.ghost,onClick:onCancelScan},"Cancel")
           )
         ),
@@ -1220,15 +1220,15 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           aiCredits>0&&e("div",{style:{marginBottom:12}},
             e("label",{style:S.label},"Scan mode"),
             e("div",{style:{display:"flex",gap:8}},
-              e("button",{style:S.pill(scanMode==="simple","#0fbcf9"),onClick:()=>setScanMode("simple")},"Simple (total only)"),
-              e("button",{style:S.pill(scanMode==="detailed","#f5a623"),onClick:()=>setScanMode("detailed")},"Detailed (line items)")
+              e("button",{style:S.pill(scanMode==="simple","#43A047"),onClick:()=>setScanMode("simple")},"Simple (total only)"),
+              e("button",{style:S.pill(scanMode==="detailed","#1E88E5"),onClick:()=>setScanMode("detailed")},"Detailed (line items)")
             )
           ),
           e("div",{style:{display:"flex",gap:8,marginBottom:18,opacity:aiCredits>0?1:0.4,pointerEvents:aiCredits>0?"auto":"none"}},
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(15,188,249,0.3)",background:"rgba(15,188,249,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>fileRef.current?.click()},
-              e(Icon,{d:IC.receipt,size:15,stroke:"#0fbcf9"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#0fbcf9"}},"Upload Receipt / PDF")),
+              e(Icon,{d:IC.receipt,size:15,stroke:"#43A047"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#43A047"}},"Upload Receipt / PDF")),
             e("button",{style:{flex:1,...S.card,border:"1px solid rgba(245,166,35,0.3)",background:"rgba(245,166,35,0.06)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 14px"},onClick:()=>cameraRef.current?.click()},
-              e(Icon,{d:IC.camera,size:15,stroke:"#f5a623"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#f5a623"}},"Camera"))
+              e(Icon,{d:IC.camera,size:15,stroke:"#1E88E5"}),e("span",{style:{fontSize:13,fontWeight:600,color:"#1E88E5"}},"Camera"))
           ),
           e("input",{ref:fileRef,type:"file",accept:"image/*,application/pdf",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
           e("input",{ref:cameraRef,type:"file",accept:"image/*",capture:"environment",style:{display:"none"},onChange:ev=>onScanFile(ev.target.files[0],scanMode)}),
@@ -1268,9 +1268,9 @@ function ExpenseModal({modal,onClose,form,setForm,onAdd,isEditing,scanState,scan
           e("input",{style:{...S.input,fontSize:14,padding:"9px 12px"},type:"number",step:"0.0001",
             placeholder:`default: ${ratePlaceholder}`,value:form.customRate,
             onChange:ev=>setForm(f=>({...f,customRate:ev.target.value}))}),
-          convertedPreview!==null&&form.amount&&e("p",{style:{fontSize:12,color:"#0fbcf9",marginTop:7}},
+          convertedPreview!==null&&form.amount&&e("p",{style:{fontSize:12,color:"#43A047",marginTop:7}},
             "≈ ",fmt(convertedPreview,incomeCurrency)," ",
-            form.customRate?e("span",{style:{color:"#f5a623"}},"· custom rate"):e("span",{style:{color:"rgba(255,255,255,0.3)"}},"· default rate")
+            form.customRate?e("span",{style:{color:"#1E88E5"}},"· custom rate"):e("span",{style:{color:"rgba(255,255,255,0.3)"}},"· default rate")
           )
         ),
         e("div",{style:{marginBottom:14}},
@@ -1307,7 +1307,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10},onClick:onOpenBudgetPicker,style:{display:"flex",alignItems:"center",gap:10,cursor:budgetsCount>1||(plan!=="free")?"pointer":"default"}},
           React.createElement(BudgieLogo,{size:44}),
           React.createElement("div",null,
-            React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
+            React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
             React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
               React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:3}},
                 budgetName || (userName ? `${userName}'s Budget` : "Budget Tracker")),
@@ -1357,8 +1357,8 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
         // 50-30-20 cards
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}},
           [{key:"needs",label:"Needs",pct:50,budget:income*0.5,color:"#f97316"},
-           {key:"wants",label:"Wants",pct:30,budget:income*0.3,color:"#f5a623"},
-           {key:"savings",label:"Savings",pct:20,budget:income*0.2,color:"#0fbcf9"}].map(item=>{
+           {key:"wants",label:"Wants",pct:30,budget:income*0.3,color:"#1E88E5"},
+           {key:"savings",label:"Savings",pct:20,budget:income*0.2,color:"#43A047"}].map(item=>{
             const spent=spentByType[item.key]||0, rem=item.budget-spent;
             return React.createElement("div",{key:item.key,style:{...S.card,padding:"14px 10px",textAlign:"center"}},
               React.createElement("div",{style:{position:"relative",display:"inline-block",marginBottom:8}},
@@ -1389,7 +1389,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             const expectedSpendPct = daysElapsed / daysInPeriod;
 
             // Per category insights
-            [["needs","#f97316",0.5],["wants","#f5a623",0.3],["savings","#0fbcf9",0.2]].forEach(([cat,color,pct])=>{
+            [["needs","#f97316",0.5],["wants","#1E88E5",0.3],["savings","#43A047",0.2]].forEach(([cat,color,pct])=>{
               const catBudget = income * pct;
               const catSpent  = spentByType[cat] || 0;
               const spentPct  = catBudget > 0 ? catSpent / catBudget : 0;
@@ -1397,13 +1397,13 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
               if (cat === "savings") {
                 // For savings, more = better — encourage saving
                 if (catSpent === 0 && daysElapsed > 3) {
-                  insights.push({emoji:"save",msg:`No savings yet this period — set aside ${fmt(catBudget,incomeCurrency)} by payday!`,color:"#0fbcf9"});
+                  insights.push({emoji:"save",msg:`No savings yet this period — set aside ${fmt(catBudget,incomeCurrency)} by payday!`,color:"#43A047"});
                 } else if (spentPct >= 1.0) {
                   insights.push({emoji:"check",msg:`Excellent! You've hit your savings goal of ${fmt(catBudget,incomeCurrency)} 🎯`,color:"#4ade9e"});
                 } else if (spentPct >= 0.5) {
-                  insights.push({emoji:"save",msg:`Good progress — ${fmt(catSpent,incomeCurrency)} saved, ${fmt(catBudget-catSpent,incomeCurrency)} to go!`,color:"#0fbcf9"});
+                  insights.push({emoji:"save",msg:`Good progress — ${fmt(catSpent,incomeCurrency)} saved, ${fmt(catBudget-catSpent,incomeCurrency)} to go!`,color:"#43A047"});
                 } else if (daysElapsed > 10) {
-                  insights.push({emoji:"save",msg:`Try to save ${fmt(catBudget,incomeCurrency)} this period — you're at ${Math.round(spentPct*100)}%`,color:"#f5a623"});
+                  insights.push({emoji:"save",msg:`Try to save ${fmt(catBudget,incomeCurrency)} this period — you're at ${Math.round(spentPct*100)}%`,color:"#1E88E5"});
                 }
                 return;
               }
@@ -1412,7 +1412,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
               if (spentPct >= 1.0) {
                 insights.push({emoji:"alert",msg:`${label} is over budget by ${fmt(catSpent-catBudget,incomeCurrency)}`,color:"#e94560"});
               } else if (spentPct >= 0.8) {
-                insights.push({emoji:"warn",msg:`${label} is at ${Math.round(spentPct*100)}% — ${fmt(catBudget-catSpent,incomeCurrency)} left`,color:"#f5a623"});
+                insights.push({emoji:"warn",msg:`${label} is at ${Math.round(spentPct*100)}% — ${fmt(catBudget-catSpent,incomeCurrency)} left`,color:"#1E88E5"});
               } else if (spentPct < expectedSpendPct * 0.6 && daysElapsed > 5) {
                 insights.push({emoji:"check",msg:`${label} is on track — ${Math.round(spentPct*100)}% used`,color:color});
               }
@@ -1423,7 +1423,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
               const dailyRate = totalSpent / daysElapsed;
               const projected = dailyRate * daysInPeriod;
               if (projected > income * 1.1) {
-                insights.push({emoji:"trend",msg:`At this rate you'll spend ${fmt(projected,incomeCurrency)} this period`,color:"#f5a623"});
+                insights.push({emoji:"trend",msg:`At this rate you'll spend ${fmt(projected,incomeCurrency)} this period`,color:"#1E88E5"});
               } else if (projected < income * 0.7) {
                 insights.push({emoji:"save",msg:`Great pace! Projected to save ${fmt(income-projected,incomeCurrency)}`,color:"#4ade9e"});
               }
@@ -1442,9 +1442,9 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
               React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<insights.slice(0,3).length-1?10:0,padding:"8px 10px",borderRadius:10,background:`rgba(${rgb(ins.color)},0.06)`}},
                 React.createElement("div",{style:{width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
                 ins.emoji==="alert"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#e94560"}):
-                ins.emoji==="warn"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#f5a623"}):
+                ins.emoji==="warn"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#1E88E5"}):
                 ins.emoji==="check"?React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}):
-                ins.emoji==="trend"?React.createElement(Icon,{d:IC.trending,size:16,stroke:"#f5a623"}):
+                ins.emoji==="trend"?React.createElement(Icon,{d:IC.trending,size:16,stroke:"#1E88E5"}):
                 ins.emoji==="save"?React.createElement(Icon,{d:IC.thumbsup,size:16,stroke:"#4ade9e"}):
                 ins.emoji==="cal"?React.createElement(Icon,{d:IC.calendar,size:16,stroke:"rgba(255,255,255,0.5)"}):
                 React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"})
@@ -1481,7 +1481,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
         // Summary
         React.createElement("div",{style:{...S.card,marginBottom:20,display:"flex"}},
           [{label:"Total Spent",value:fmt(totalSpent,incomeCurrency),color:totalSpent>income?"#e94560":"#f0f0f5"},
-           {label:"Remaining",value:fmt(Math.abs(income-totalSpent),incomeCurrency),color:income-totalSpent<0?"#e94560":"#0fbcf9"},
+           {label:"Remaining",value:fmt(Math.abs(income-totalSpent),incomeCurrency),color:income-totalSpent<0?"#e94560":"#43A047"},
            {label:"Expenses",value:String(allExpenses.length),color:"#f0f0f5"}].map((item,i)=>
             React.createElement("div",{key:i,style:{flex:1,textAlign:"center",borderRight:i<2?"1px solid rgba(255,255,255,0.07)":"none"}},
               React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px",marginBottom:4}},item.label),
@@ -1552,7 +1552,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
         React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}},
           React.createElement("span",{style:{fontSize:11,padding:"2px 7px",borderRadius:99,background:`rgba(${rgb(cc)},0.15)`,color:cc,fontWeight:600}},exp.subcat||exp.category),
           exp.expense_date&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},exp.expense_date),
-          exp.custom_rate&&React.createElement("span",{style:{fontSize:10,color:"#f5a623"}},"custom rate")
+          exp.custom_rate&&React.createElement("span",{style:{fontSize:10,color:"#1E88E5"}},"custom rate")
         )
       ),
       React.createElement("div",{style:{textAlign:"right",flexShrink:0}},
@@ -1572,7 +1572,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
         React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
           React.createElement(BudgieLogo,{size:44}),
           React.createElement("div",null,
-            React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
+            React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
             React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},userName ? `${userName}'s Expenses` : "Expenses")
           )
         ),
@@ -1583,7 +1583,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
     React.createElement("div",{style:{padding:"0 16px"}},
       React.createElement("div",{style:{display:"flex",gap:8,marginBottom:12}},
         React.createElement("button",{style:S.pill(activeType==="recurring"),onClick:()=>setActiveType("recurring")},"Fixed"),
-        React.createElement("button",{style:S.pill(activeType==="daily","#f5a623"),onClick:()=>setActiveType("daily")},"Variable")
+        React.createElement("button",{style:S.pill(activeType==="daily","#1E88E5"),onClick:()=>setActiveType("daily")},"Variable")
       ),
       activeType==="recurring"&&React.createElement("div",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",marginBottom:14,padding:"8px 12px",background:"rgba(255,255,255,0.03)",borderRadius:10,lineHeight:1.5}},
         React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.pin,size:12,stroke:"rgba(255,255,255,0.35)"}), " Fixed expenses are always counted in your budget, every period.")),
@@ -1845,7 +1845,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10}},
         React.createElement(BudgieLogo,{size:44}),
         React.createElement("div",null,
-          React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#0fbcf9)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
+          React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
           React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},userName ? `${userName}'s History` : "History")
         )
       )
@@ -1880,7 +1880,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
             onClick:exportCSV, disabled:exporting||filtered.length===0},
             exporting?"Exporting...":React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.download,size:14,stroke:"#0a0a0f"}), " Export CSV")),
           React.createElement("button",{
-            style:{...S.btn("#0fbcf9",true),flex:1,fontSize:13,padding:"10px"},
+            style:{...S.btn("#43A047",true),flex:1,fontSize:13,padding:"10px"},
             onClick:exportPDF, disabled:exporting||filtered.length===0},
             exporting?"Exporting...":React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.download,size:14,stroke:"#fff"}), " Export PDF"))
         )
@@ -1896,7 +1896,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
             history.slice(0,6).reverse().map((h,i)=>{
               const maxVal=Math.max(...history.slice(0,6).map(x=>x.income||1));
               return React.createElement("div",{key:i,style:{flex:1,display:"flex",flexDirection:"column",gap:3}},
-                [["needs","#f97316"],["wants","#f5a623"],["savings","#0fbcf9"]].map(([k,c])=>{
+                [["needs","#f97316"],["wants","#1E88E5"],["savings","#43A047"]].map(([k,c])=>{
                   const pct=maxVal>0?Math.min((h[k]/maxVal)*100,100):0;
                   return React.createElement("div",{key:k,style:{width:"100%",height:80,background:"rgba(255,255,255,0.05)",borderRadius:8,overflow:"hidden",display:"flex",alignItems:"flex-end"}},
                     React.createElement("div",{style:{width:"100%",height:`${pct}%`,background:c,borderRadius:8,minHeight:h[k]>0?4:0}}));
@@ -1906,7 +1906,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
             })
           ),
           React.createElement("div",{style:{display:"flex",gap:12,marginTop:12,justifyContent:"center"}},
-            [["Needs","#e94560"],["Wants","#f5a623"],["Savings","#0fbcf9"]].map(([l,c])=>
+            [["Needs","#e94560"],["Wants","#1E88E5"],["Savings","#43A047"]].map(([l,c])=>
               React.createElement("div",{key:l,style:{display:"flex",alignItems:"center",gap:4}},
                 React.createElement("div",{style:{width:8,height:8,borderRadius:2,background:c}}),
                 React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.4)"}},l)
@@ -1924,15 +1924,15 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
               React.createElement("span",{style:{fontSize:11,padding:"3px 10px",borderRadius:99,background:over?"rgba(233,69,96,0.15)":"rgba(74,222,158,0.12)",color:over?"#e94560":"#4ade9e",fontWeight:700}},over?"Over budget":`${savedPct}% saved`)
             ),
             income>0&&React.createElement("div",{style:{height:8,borderRadius:99,overflow:"hidden",background:"rgba(255,255,255,0.06)",display:"flex",marginBottom:12}},
-              [["needs","#f97316"],["wants","#f5a623"],["savings","#0fbcf9"]].map(([k,c])=>
+              [["needs","#f97316"],["wants","#1E88E5"],["savings","#43A047"]].map(([k,c])=>
                 React.createElement("div",{key:k,style:{width:`${Math.min((h[k]/income)*100,100)}%`,background:c}})
               )
             ),
             React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}},
               [{label:"Income",value:fmt(income,h.currency),color:"rgba(255,255,255,0.7)"},
                {label:"Needs",value:fmt(h.needs,h.currency),color:"#f97316"},
-               {label:"Wants",value:fmt(h.wants,h.currency),color:"#f5a623"},
-               {label:"Savings",value:fmt(h.savings,h.currency),color:"#0fbcf9"}].map(item=>
+               {label:"Wants",value:fmt(h.wants,h.currency),color:"#1E88E5"},
+               {label:"Savings",value:fmt(h.savings,h.currency),color:"#43A047"}].map(item=>
                 React.createElement("div",{key:item.label,style:{textAlign:"center"}},
                   React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.3)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px",marginBottom:3}},item.label),
                   React.createElement("p",{style:{fontSize:12,fontWeight:800,color:item.color}},item.value)
@@ -2025,7 +2025,7 @@ function FamilyMembers({budget, token, plan}) {
       members.map((m,i) =>
         React.createElement("div",{key:i,style:{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid rgba(255,255,255,0.06)"}},
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
-            React.createElement("div",{style:{width:28,height:28,borderRadius:99,background:"linear-gradient(135deg,#4ade9e,#0fbcf9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#0a0a0f"}},"👤"),
+            React.createElement("div",{style:{width:28,height:28,borderRadius:99,background:"linear-gradient(135deg,#4ade9e,#43A047)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:"#0a0a0f"}},"👤"),
             React.createElement("span",{style:{fontSize:13,color:"rgba(255,255,255,0.7)"}},
               m.role === "owner" ? "You (owner)" : `Member`)
           ),
@@ -2057,13 +2057,13 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
     window.location.href = "https://billing.stripe.com/p/login/test_fZu14n7ht2aI76ycdWbsc00";
   }
 
-  const planColor = profile?.plan==="family"?"#4ade9e":profile?.plan==="pro"?"#0fbcf9":"rgba(255,255,255,0.4)";
+  const planColor = profile?.plan==="family"?"#4ade9e":profile?.plan==="pro"?"#43A047":"rgba(255,255,255,0.4)";
 
   return React.createElement("div",{style:{padding:"44px 16px 16px"}},
     // Profile card
     React.createElement("div",{style:{...S.card,marginBottom:16,padding:20}},
       React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12,marginBottom:16}},
-        React.createElement("div",{style:{width:52,height:52,borderRadius:99,background:"linear-gradient(135deg,#4ade9e,#0fbcf9)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:"#0a0a0f"}},
+        React.createElement("div",{style:{width:52,height:52,borderRadius:99,background:"linear-gradient(135deg,#4ade9e,#43A047)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,fontWeight:800,color:"#0a0a0f"}},
           (profile?.name||user?.email||"?")[0].toUpperCase()),
         React.createElement("div",null,
           React.createElement("p",{style:{fontWeight:800,fontSize:16}},profile?.name||"User"),
@@ -2089,7 +2089,7 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
           React.createElement("div",{style:{width:28,height:28,borderRadius:8,background:"rgba(74,222,158,0.12)",display:"flex",alignItems:"center",justifyContent:"center"}},React.createElement(Icon,{d:IC.bot,size:16,stroke:"#4ade9e"})),
           React.createElement("p",{style:{fontWeight:700,fontSize:14}},"AI Scanner Credits")
         ),
-        React.createElement("span",{style:{fontSize:22,fontWeight:900,color:aiCredits>5?"#4ade9e":aiCredits>0?"#f5a623":"#e94560"}},
+        React.createElement("span",{style:{fontSize:22,fontWeight:900,color:aiCredits>5?"#4ade9e":aiCredits>0?"#1E88E5":"#e94560"}},
           aiCredits ?? "...")
       ),
       React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginBottom:12}},
