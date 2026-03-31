@@ -1701,36 +1701,14 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenses Tab
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpenEdit,budget,userName,budgets,onSwitchBudget}) {
+function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpenEdit,budget,userName,budgets,onSwitchBudget,profileMap={}}) {
   const [activeType,setActiveType]=useState("recurring");
   const [search, setSearch]       = useState("");
   const [showBudgetDropdown, setShowBudgetDropdown] = useState(false);
-  const [profileMap, setProfileMap] = useState({});
 
   useEffect(()=>{
-    if (!budget?.id) return;
-    // Load profile names for added_by
-    const loadProfiles = async () => {
-      try {
-        const ids = [...new Set(expenses.map(e=>e.added_by).filter(Boolean))];
-        if (ids.length === 0) return;
-        const map = {};
-        const profDb = await sb.from("profiles", null);
-        // Use anon key for profiles (own profile visible)
-        await Promise.all(ids.map(async uid => {
-          try {
-            const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,name&id=eq.${uid}`,{
-              headers: authHeaders(null)
-            });
-            const data = await r.json();
-            if (Array.isArray(data) && data[0]) map[uid] = data[0].name || "Member";
-          } catch(e) {}
-        }));
-        setProfileMap(map);
-      } catch(e) {}
-    };
-    loadProfiles();
-  }, [expenses]);
+    // profileMap is populated via token passed as prop
+  }, []);
   const [showFilters, setShowFilters] = useState(false);
   const [filterCat, setFilterCat] = useState("");
   const [sortBy, setSortBy]       = useState("date");
@@ -1922,7 +1900,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
 // ─────────────────────────────────────────────────────────────────────────────
 // History Tab (Pro/Family only)
 // ─────────────────────────────────────────────────────────────────────────────
-function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token,budgets,onSwitchBudget}) {
+function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token,budgets,onSwitchBudget,profileMap={}}) {
   const [fromPeriod, setFromPeriod] = useState("");
   const [toPeriod, setToPeriod]     = useState("");
   const [exporting, setExporting]   = useState(false);
@@ -1983,25 +1961,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token,budge
     if (!budget?.id || !token) return;
     setHistLoading(true);
     fetchExpensesForRange(fromPeriod||null, toPeriod||null)
-      .then(async rows => {
-        setHistExpenses(rows);
-        // Load unique user names
-        const uniqueIds = [...new Set((rows||[]).map(e=>e.added_by).filter(Boolean))];
-        if (uniqueIds.length > 0) {
-          try {
-            const profDb = await sb.from("profiles", token);
-            const map = {};
-            await Promise.all(uniqueIds.map(async uid => {
-              try {
-                const p = await profDb.select("id,name", `id=eq.${uid}`);
-                if (Array.isArray(p) && p[0]) map[uid] = p[0].name || "Unknown";
-              } catch(e) {}
-            }));
-            setProfileMap(map);
-          } catch(e) {}
-        }
-        setHistLoading(false);
-      })
+      .then(rows => { setHistExpenses(rows); setHistLoading(false); })
       .catch(()=>setHistLoading(false));
   }, [fromPeriod, toPeriod, budget?.id]);
 
@@ -3060,7 +3020,8 @@ function BudgetApp() {
   });
   const [showMethodCard, setShowMethodCard] = useState(false);
   const [activeCatTooltip, setActiveCatTooltip] = useState(null);
-  const [showFamilyWelcome, setShowFamilyWelcome] = useState(false); // "needs"|"wants"|"savings"
+  const [showFamilyWelcome, setShowFamilyWelcome] = useState(false);
+  const [profileMap, setProfileMap] = useState({}); // "needs"|"wants"|"savings"
 
   // ── Auth check on mount ──────────────────────────────────────────────────
   // Check for invite token in URL
@@ -3322,7 +3283,21 @@ function BudgetApp() {
   async function loadExpenses(token, budgetId) {
     const expDb = await sb.from("expenses", token);
     const exps = await expDb.select("*", `budget_id=eq.${budgetId}&order=created_at.desc`);
-    setExpenses(Array.isArray(exps)?exps:[]);
+    const expArr = Array.isArray(exps) ? exps : [];
+    setExpenses(expArr);
+    // Load profile names for added_by
+    const uniqueIds = [...new Set(expArr.map(e=>e.added_by).filter(Boolean))];
+    if (uniqueIds.length > 0) {
+      const map = {};
+      await Promise.all(uniqueIds.map(async uid => {
+        try {
+          const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,name&id=eq.${uid}`, {headers: authHeaders(token)});
+          const data = await r.json();
+          if (Array.isArray(data) && data[0]) map[uid] = data[0].name || "Member";
+        } catch(e) {}
+      }));
+      setProfileMap(map);
+    }
   }
 
   async function loadHistory(token, budgetId) {
@@ -3881,8 +3856,8 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
     React.createElement("style",null,globalStyles),
 
     tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab,onCatInfo:setActiveCatTooltip,onShareBudget:(!profile?.family_role||profile?.family_role==="owner")?()=>setShareBudgetId(budget?.id):null}),
-    tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||"",budgets,onSwitchBudget:switchBudget}),
-    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken,budgets,onSwitchBudget:switchBudget}),
+    tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||"",budgets,onSwitchBudget:switchBudget,profileMap}),
+    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken,budgets,onSwitchBudget:switchBudget,profileMap}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif,onUpdateBudget:updateBudget,rates}),
 
     React.createElement("nav",{style:S.navBar},
