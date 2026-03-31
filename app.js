@@ -1675,7 +1675,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             ),
             React.createElement(Icon,{d:IC.history,size:16,stroke:"rgba(255,255,255,0.3)"})
           )
-        ),
+        )
 
       ) : React.createElement("div",{style:{...S.card,textAlign:"center",padding:"40px 24px"}},
         React.createElement("div",{style:{fontSize:48,marginBottom:12}},"💰"),
