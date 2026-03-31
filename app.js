@@ -1691,6 +1691,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
         ) : null
       )
     )
+  )
   );
 }
 
