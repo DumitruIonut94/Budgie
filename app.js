@@ -1658,7 +1658,6 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
   const [activeType,setActiveType]=useState("recurring");
   const [search, setSearch]       = useState("");
   const [showBudgetDropdown, setShowBudgetDropdown] = useState(false);
-  const [showAllExpenses, setShowAllExpenses] = useState(false);
 
   useEffect(()=>{
     // profileMap is populated via token passed as prop
@@ -1870,6 +1869,7 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token,budge
   const [expandedPeriod, setExpandedPeriod] = useState(null);
   const [exportPeriod, setExportPeriod]     = useState(null);
   const [showBudgetDropdown, setShowBudgetDropdown] = useState(false); // period key for inline export
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
 
   function periodLabel(p) {
     if(!p)return"";
@@ -1920,6 +1920,9 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token,budge
   }, [fromPeriod, toPeriod, budget?.id]);
 
   // Filter/sort hist expenses
+  // Reset preview when filters change
+  useEffect(()=>{ setShowAllExpenses(false); }, [expSearch, expFilterCat, expFromDate, expToDate, expSortBy]);
+
   const filteredExpenses = histExpenses
     .filter(e => !expSearch || (e.name||"").toLowerCase().includes(expSearch.toLowerCase()))
     .filter(e => !expFilterCat || e.category===expFilterCat)
