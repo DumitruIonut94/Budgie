@@ -2502,6 +2502,8 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
             showAllExpenses ? "Show less ↑" : `Show all ${filteredExpenses.length} expenses ↓`
           )
           )
+        )
+      )
 
 
       )
