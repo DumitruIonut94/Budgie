@@ -1547,7 +1547,16 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
               React.createElement("p",{style:{fontSize:12,fontWeight:800,color:item.color}},fmt(item.budget,incomeCurrency)),
               React.createElement("p",{style:{fontSize:10,color:rem<0?"#e94560":"rgba(255,255,255,0.3)"}},rem<0?`over ${fmt(Math.abs(rem),incomeCurrency)}`:`${fmt(rem,incomeCurrency)} left`)
             );
-          })
+          }),
+          filteredExpenses.length > 5 && React.createElement("button",{
+            style:{...S.ghost,width:"100%",marginTop:10,fontSize:12,padding:"8px",
+              color:"rgba(255,255,255,0.5)"},
+            onClick:()=>setShowAllExpenses(!showAllExpenses)},
+            showAllExpenses
+              ? "Show less ↑"
+              : `Show all ${filteredExpenses.length} expenses ↓`
+          )
+          )
         ),
 
         // Insights card
@@ -1705,6 +1714,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
   const [activeType,setActiveType]=useState("recurring");
   const [search, setSearch]       = useState("");
   const [showBudgetDropdown, setShowBudgetDropdown] = useState(false);
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
 
   useEffect(()=>{
     // profileMap is populated via token passed as prop
@@ -1762,7 +1772,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
     const er=exp.custom_rate?{...rates,[exp.custom_rate_cur||ec]:exp.custom_rate}:rates;
     const cv=convert(parseFloat(exp.amount)||0,ec,incomeCurrency,er);
     const showCV=ec!==incomeCurrency;
-    const addedByName = profileMap[exp.added_by];
+    const addedByName = exp.added_by_name || profileMap[exp.added_by];
     return React.createElement("div",{
       onClick:()=>onOpenEdit(exp),
       style:{...S.card,marginBottom:8,display:"flex",alignItems:"center",gap:12,cursor:"pointer",transition:"background 0.15s"},
@@ -2517,11 +2527,12 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
             `${filteredExpenses.length} result${filteredExpenses.length!==1?"s":""}`),
           histLoading ? React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.3)",textAlign:"center",padding:"16px 0"}},"Loading...") :
           filteredExpenses.length===0 ? React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.3)",textAlign:"center",padding:"16px 0"}},
-            expSearch||expFilterCat?"No expenses match your search":"No expenses for this period") :
-          filteredExpenses.map((exp,i)=>{
+            expSearch||expFilterCat||expFromDate||expToDate?"No expenses match your filters":"No expenses yet") :
+          React.createElement(React.Fragment,null,
+          (showAllExpenses ? filteredExpenses : filteredExpenses.slice(0,5)).map((exp,i)=>{
             const cc=CAT_COLOR[exp.category]||"#f0f0f5";
             const ec=exp.currency||"RON";
-            const addedByName = profileMap[exp.added_by];
+            const addedByName = exp.added_by_name || profileMap[exp.added_by];
             return React.createElement("div",{key:exp.id||i,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<filteredExpenses.length-1?"1px solid rgba(255,255,255,0.05)":"none"}},
               React.createElement("div",{style:{width:34,height:34,borderRadius:10,background:`rgba(${rgb(cc)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
                 React.createElement(Icon,{d:exp.type==="recurring"?IC.pin:IC.receipt,size:15,stroke:cc})
@@ -3503,7 +3514,8 @@ function BudgetApp() {
     const fc=form.currency!=="RON"?form.currency:incomeCurrency;
     const cr=form.customRate?parseFloat(form.customRate)||null:null;
     const targetBudId = form.targetBudgetId || budget.id;
-    const entry={budget_id:targetBudId,added_by:user.id,type,name:form.name,amount:parseFloat(form.amount),currency:form.currency||incomeCurrency,custom_rate_cur:fc,custom_rate:cr,category:form.category,subcat:form.subcat,expense_date:new Date().toISOString().split("T")[0]};
+    const addedByName = profile?.name || user?.email?.split("@")[0] || "Unknown";
+    const entry={budget_id:targetBudId,added_by:user.id,added_by_name:addedByName,type,name:form.name,amount:parseFloat(form.amount),currency:form.currency||incomeCurrency,custom_rate_cur:fc,custom_rate:cr,category:form.category,subcat:form.subcat,expense_date:new Date().toISOString().split("T")[0]};
 
     if(editingExpense) {
       const db = await sb.from("expenses", authToken);
