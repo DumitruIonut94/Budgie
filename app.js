@@ -1528,7 +1528,24 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
     ),
 
     React.createElement("div",{style:{padding:"0 16px"}},
-      income>0 ? React.createElement(React.Fragment,null,
+      (()=>{
+        if (!income || income <= 0) return React.createElement("div",{style:{...S.card,textAlign:"center",padding:"40px 24px"}},
+          React.createElement("div",{style:{fontSize:48,marginBottom:12}},"💰"),
+          React.createElement("p",{style:{fontWeight:700,fontSize:17,marginBottom:8}},"Set your monthly income"),
+          React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:20}},"Tap the amount above to get started"),
+          React.createElement("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:14,padding:16,textAlign:"left"}},
+            [["🟠","50%","Needs","Rent, food, bills"],["🟡","30%","Wants","Dining, shopping, fun"],["🔵","20%","Savings","Emergency fund, investments"]].map(([e,p,l,d])=>
+              React.createElement("div",{key:l,style:{display:"flex",gap:10,marginBottom:10}},
+                React.createElement("span",null,e),
+                React.createElement("div",null,
+                  React.createElement("span",{style:{fontWeight:700,fontSize:13}},p," ",l),
+                  React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",margin:0}},d)
+                )
+              )
+            )
+          )
+        );
+        return React.createElement(React.Fragment,null,
         // 50-30-20 cards
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}},
           [{key:"needs",label:"Needs",pct:50,budget:income*0.5,color:"#f97316"},
@@ -1676,22 +1693,8 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             React.createElement(Icon,{d:IC.history,size:16,stroke:"rgba(255,255,255,0.3)"})
           )
         ) : null
-      ) : React.createElement("div",{style:{...S.card,textAlign:"center",padding:"40px 24px"}},
-        React.createElement("div",{style:{fontSize:48,marginBottom:12}},"💰"),
-        React.createElement("p",{style:{fontWeight:700,fontSize:17,marginBottom:8}},"Set your monthly income"),
-        React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:20}},"Tap the amount above to get started"),
-        React.createElement("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:14,padding:16,textAlign:"left"}},
-          [["🟠","50%","Needs","Rent, food, bills"],["🟡","30%","Wants","Dining, shopping, fun"],["🔵","20%","Savings","Emergency fund, investments"]].map(([e,p,l,d])=>
-            React.createElement("div",{key:l,style:{display:"flex",gap:10,marginBottom:10}},
-              React.createElement("span",null,e),
-              React.createElement("div",null,
-                React.createElement("span",{style:{fontWeight:700,fontSize:13}},p," ",l),
-                React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",margin:0}},d)
-              )
-            )
-          )
-        )
-      )
+        );
+      })()
     )
   );
 }
