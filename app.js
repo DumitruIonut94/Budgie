@@ -1528,8 +1528,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
     ),
 
     React.createElement("div",{style:{padding:"0 16px"}},
-      (()=>{
-        if (!income || income <= 0) return React.createElement("div",{style:{...S.card,textAlign:"center",padding:"40px 24px"}},
+      income<=0 ? React.createElement("div",{style:{...S.card,textAlign:"center",padding:"40px 24px"}},
           React.createElement("div",{style:{fontSize:48,marginBottom:12}},"💰"),
           React.createElement("p",{style:{fontWeight:700,fontSize:17,marginBottom:8}},"Set your monthly income"),
           React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:20}},"Tap the amount above to get started"),
@@ -1544,8 +1543,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
               )
             )
           )
-        );
-        return React.createElement(React.Fragment,null,
+        ) : React.createElement(React.Fragment,null,
         // 50-30-20 cards
         React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}},
           [{key:"needs",label:"Needs",pct:50,budget:income*0.5,color:"#f97316"},
@@ -1681,16 +1679,16 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             )
           )
         ),
-      })(),
-      plan==="free" && React.createElement("div",{style:{...S.card,marginBottom:20,background:"rgba(74,222,158,0.06)",border:"1px solid rgba(74,222,158,0.2)",cursor:"pointer"},onClick:onUpgrade},
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
-          React.createElement(Icon,{d:IC.crown,size:20,stroke:"#4ade9e"}),
-          React.createElement("div",{style:{flex:1}},
-            React.createElement("p",{style:{fontWeight:700,fontSize:14,color:"#4ade9e"}},"Upgrade to Pro"),
-            React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:2}},"Unlock history, export & more — from €2.99/mo")
-          ),
-          React.createElement(Icon,{d:IC.history,size:16,stroke:"rgba(255,255,255,0.3)"})
-        )
+        plan==="free" ? React.createElement("div",{style:{...S.card,marginBottom:20,background:"rgba(74,222,158,0.06)",border:"1px solid rgba(74,222,158,0.2)",cursor:"pointer"},onClick:onUpgrade},
+          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
+            React.createElement(Icon,{d:IC.crown,size:20,stroke:"#4ade9e"}),
+            React.createElement("div",{style:{flex:1}},
+              React.createElement("p",{style:{fontWeight:700,fontSize:14,color:"#4ade9e"}},"Upgrade to Pro"),
+              React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:2}},"Unlock history, export & more — from €2.99/mo")
+            ),
+            React.createElement(Icon,{d:IC.history,size:16,stroke:"rgba(255,255,255,0.3)"})
+          )
+        ) : null
       )
     )
   );
