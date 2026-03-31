@@ -1701,9 +1701,10 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenses Tab
 // ─────────────────────────────────────────────────────────────────────────────
-function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpenEdit,budget,userName}) {
+function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpenEdit,budget,userName,budgets,onSwitchBudget}) {
   const [activeType,setActiveType]=useState("recurring");
   const [search, setSearch]       = useState("");
+  const [showBudgetDropdown, setShowBudgetDropdown] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filterCat, setFilterCat] = useState("");
   const [sortBy, setSortBy]       = useState("date");
@@ -1790,7 +1791,33 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
           React.createElement(BudgieLogo,{size:44}),
           React.createElement("div",null,
             React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
-            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},budget?.name ? `${budget.name} · Expenses` : "Expenses")
+            React.createElement("div",{style:{position:"relative"}},
+              React.createElement("button",{
+                style:{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.06)",
+                  border:"1px solid rgba(255,255,255,0.08)",borderRadius:6,padding:"3px 8px",cursor:"pointer"},
+                onClick:()=>setShowBudgetDropdown(!showBudgetDropdown)},
+                React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase"}},
+                  budget?.name || "Expenses"),
+                React.createElement(Icon,{d:"M6 9l6 6 6-6",size:12,stroke:"rgba(255,255,255,0.4)"})
+              ),
+              showBudgetDropdown && React.createElement("div",{style:{position:"absolute",top:"calc(100% + 6px)",left:0,
+                background:"#1a1a2e",borderRadius:12,border:"1px solid rgba(255,255,255,0.1)",
+                minWidth:180,zIndex:200,overflow:"hidden",boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}},
+                budgets && budgets.map(b=>
+                  React.createElement("button",{key:b.id,
+                    style:{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"10px 14px",
+                      background:b.id===budget?.id?"rgba(74,222,158,0.08)":"none",
+                      border:"none",cursor:"pointer",textAlign:"left",
+                      borderBottom:"1px solid rgba(255,255,255,0.05)"},
+                    onClick:()=>{onSwitchBudget&&onSwitchBudget(b);setShowBudgetDropdown(false);}},
+                    React.createElement(Icon,{d:IC.wallet,size:14,stroke:b.id===budget?.id?"#4ade9e":"rgba(255,255,255,0.4)"}),
+                    React.createElement("span",{style:{fontSize:13,fontWeight:600,
+                      color:b.id===budget?.id?"#4ade9e":"rgba(255,255,255,0.7)"}},b.name),
+                    b.id===budget?.id&&React.createElement(Icon,{d:IC.check,size:12,stroke:"#4ade9e"})
+                  )
+                )
+              )
+            )
           )
         ),
         React.createElement("button",{style:S.btn("#e94560"),onClick:()=>onOpenAdd(activeType)},
@@ -1866,7 +1893,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
 // ─────────────────────────────────────────────────────────────────────────────
 // History Tab (Pro/Family only)
 // ─────────────────────────────────────────────────────────────────────────────
-function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
+function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token,budgets,onSwitchBudget}) {
   const [fromPeriod, setFromPeriod] = useState("");
   const [toPeriod, setToPeriod]     = useState("");
   const [exporting, setExporting]   = useState(false);
@@ -1880,7 +1907,8 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
   const [expToDate, setExpToDate]       = useState("");
   const [showExportModal, setShowExportModal] = useState(false);
   const [expandedPeriod, setExpandedPeriod] = useState(null);
-  const [exportPeriod, setExportPeriod]     = useState(null); // period key for inline export
+  const [exportPeriod, setExportPeriod]     = useState(null);
+  const [showBudgetDropdown, setShowBudgetDropdown] = useState(false); // period key for inline export
 
   function periodLabel(p) {
     if(!p)return"";
@@ -2279,7 +2307,33 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token}) {
           React.createElement(BudgieLogo,{size:44}),
           React.createElement("div",null,
             React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
-            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:5}},userName ? `${userName}'s History` : "History")
+            React.createElement("div",{style:{position:"relative"}},
+            React.createElement("button",{
+              style:{display:"flex",alignItems:"center",gap:5,background:"rgba(255,255,255,0.06)",
+                border:"1px solid rgba(255,255,255,0.08)",borderRadius:6,padding:"3px 8px",cursor:"pointer"},
+              onClick:()=>setShowBudgetDropdown(!showBudgetDropdown)},
+              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase"}},
+                budget?.name || "History"),
+              React.createElement(Icon,{d:"M6 9l6 6 6-6",size:12,stroke:"rgba(255,255,255,0.4)"})
+            ),
+            showBudgetDropdown && React.createElement("div",{style:{position:"absolute",top:"calc(100% + 6px)",left:0,
+              background:"#1a1a2e",borderRadius:12,border:"1px solid rgba(255,255,255,0.1)",
+              minWidth:180,zIndex:200,overflow:"hidden",boxShadow:"0 8px 32px rgba(0,0,0,0.4)"}},
+              budgets && budgets.map(b=>
+                React.createElement("button",{key:b.id,
+                  style:{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"10px 14px",
+                    background:b.id===budget?.id?"rgba(74,222,158,0.08)":"none",
+                    border:"none",cursor:"pointer",textAlign:"left",
+                    borderBottom:"1px solid rgba(255,255,255,0.05)"},
+                  onClick:()=>{onSwitchBudget&&onSwitchBudget(b);setShowBudgetDropdown(false);}},
+                  React.createElement(Icon,{d:IC.wallet,size:14,stroke:b.id===budget?.id?"#4ade9e":"rgba(255,255,255,0.4)"}),
+                  React.createElement("span",{style:{fontSize:13,fontWeight:600,
+                    color:b.id===budget?.id?"#4ade9e":"rgba(255,255,255,0.7)"}},b.name),
+                  b.id===budget?.id&&React.createElement(Icon,{d:IC.check,size:12,stroke:"#4ade9e",style:{marginLeft:"auto"}})
+                )
+              )
+            )
+          )
           )
         ),
         history.length>0 && React.createElement("button",{
@@ -3781,8 +3835,8 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
     React.createElement("style",null,globalStyles),
 
     tab==="home"&&React.createElement(HomeTab,{budget,expenses,updateBudget,incomeCurrency,rates,spentByType,totalSpent,allExpenses:expenses,onOpenRates:()=>setShowRates(true),plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",onOpenBudgetPicker:()=>setShowBudgetPicker(true),budgetsCount:budgets.length,budgetName:budget?.name,onSwitchTab:setTab,onCatInfo:setActiveCatTooltip,onShareBudget:(!profile?.family_role||profile?.family_role==="owner")?()=>setShareBudgetId(budget?.id):null}),
-    tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||""}),
-    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken}),
+    tab==="expenses"&&React.createElement(ExpensesTab,{expenses,updateBudget,incomeCurrency,rates,onOpenAdd:openAdd,onOpenEdit:openEdit,budget,userName:profile?.name||user?.email?.split("@")[0]||"",budgets,onSwitchBudget:switchBudget}),
+    tab==="history"&&React.createElement(HistoryTab,{history,plan,onUpgrade:()=>setShowUpgrade(true),userName:profile?.name||user?.email?.split("@")[0]||"",budget,expenses,token:authToken,budgets,onSwitchBudget:switchBudget}),
     tab==="account"&&React.createElement(AccountTab,{user,profile,token:authToken,budget,aiCredits,onSignOut:handleSignOut,onUpgrade:()=>setShowUpgrade(true),onRequestPush:handleRequestPush,notifPrefs,onToggleNotif:handleToggleNotif,onUpdateBudget:updateBudget,rates}),
 
     React.createElement("nav",{style:S.navBar},
