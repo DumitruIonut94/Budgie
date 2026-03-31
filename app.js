@@ -1496,10 +1496,13 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
           React.createElement(BudgieLogo,{size:44}),
           React.createElement("div",null,
             React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
-            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:4}},
-              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase",marginTop:3}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,
+              padding:"3px 8px",borderRadius:6,
+              background:(plan!=="free"||budgetsCount>1)?"rgba(255,255,255,0.06)":"transparent",
+              border:(plan!=="free"||budgetsCount>1)?"1px solid rgba(255,255,255,0.08)":"none"}},
+              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase"}},
                 budgetName || (userName ? `${userName}'s Budget` : "Budget Tracker")),
-              (plan!=="free"||budgetsCount>1) && React.createElement("span",{style:{fontSize:10,color:"rgba(255,255,255,0.2)",marginTop:3}},"▼")
+              (plan!=="free"||budgetsCount>1) && React.createElement(Icon,{d:"M6 9l6 6 6-6",size:12,stroke:"rgba(255,255,255,0.3)"})
             )
           )
         ),
@@ -3606,6 +3609,8 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
     const [newIncome, setNewIncome]     = useState("");
     const [newCurrency, setNewCurrency] = useState("RON");
     const [creating, setCreating]       = useState(false);
+    const [editingBudgetId, setEditingBudgetId]     = useState(null);
+    const [editingBudgetName, setEditingBudgetName] = useState("");
     const canCreate = plan !== "free" || budgets.length === 0;
 
     async function handleCreate() {
@@ -3629,35 +3634,62 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
             React.createElement(Icon,{d:IC.x,size:20}))
         ),
         // Budget list
-        budgets.map(b =>
-          React.createElement("div",{key:b.id,style:{...S.card,marginBottom:10,display:"flex",alignItems:"center",gap:12,cursor:"pointer",
+        budgets.map(b => {
+          const isEditingThis = editingBudgetId === b.id;
+          return React.createElement("div",{key:b.id,style:{...S.card,marginBottom:10,display:"flex",alignItems:"center",gap:10,
+            cursor:isEditingThis?"default":"pointer",
             border:b.id===budget?.id?"1px solid rgba(74,222,158,0.4)":"1px solid rgba(255,255,255,0.07)"},
-            onClick:()=>switchBudget(b)},
-            React.createElement("div",{style:{width:36,height:36,borderRadius:10,background:b.id===budget?.id?"rgba(74,222,158,0.15)":"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center"}},
+            onClick:()=>!isEditingThis&&switchBudget(b)},
+            React.createElement("div",{style:{width:36,height:36,borderRadius:10,flexShrink:0,background:b.id===budget?.id?"rgba(74,222,158,0.15)":"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center"}},
               React.createElement(Icon,{d:IC.wallet,size:16,stroke:b.id===budget?.id?"#4ade9e":"rgba(255,255,255,0.4)"})),
-            React.createElement("div",{style:{flex:1}},
-              React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
-                React.createElement("p",{style:{fontWeight:700,fontSize:14,color:b.id===budget?.id?"#4ade9e":"#f0f0f5"}},b.name),
-                b._shared&&React.createElement("span",{style:{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(74,222,158,0.15)",color:"#4ade9e",fontWeight:700}},"SHARED")
-              ),
-              React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},
-                b.income_currency||"RON"," · ",b.payday?"Payday "+b.payday:"No payday set")
+            React.createElement("div",{style:{flex:1,minWidth:0}},
+              isEditingThis
+                ? React.createElement("input",{
+                    style:{...S.input,fontSize:13,padding:"6px 10px"},
+                    value:editingBudgetName,
+                    autoFocus:true,
+                    onChange:e=>setEditingBudgetName(e.target.value),
+                    onKeyDown:e=>{
+                      if(e.key==="Enter"){updateBudgetById(b.id,{name:editingBudgetName});setEditingBudgetId(null);}
+                      if(e.key==="Escape"){setEditingBudgetId(null);}
+                    },
+                    onClick:e=>e.stopPropagation()
+                  })
+                : React.createElement(React.Fragment,null,
+                    React.createElement("div",{style:{display:"flex",alignItems:"center",gap:6}},
+                      React.createElement("p",{style:{fontWeight:700,fontSize:14,color:b.id===budget?.id?"#4ade9e":"#f0f0f5",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},b.name),
+                      b._shared&&React.createElement("span",{style:{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(74,222,158,0.15)",color:"#4ade9e",fontWeight:700,flexShrink:0}},"SHARED")
+                    ),
+                    React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},
+                      b.income_currency||"RON"," · ",b.payday?"Payday "+b.payday:"No payday set")
+                  )
             ),
-            b.id===budget?.id && React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}),
-            // Share button — only for owners (not members)
-            b.owner_id===user?.id && plan==="family" && !b._shared && (!profile?.family_role || profile?.family_role==="owner") && React.createElement("button",{
+            // Edit name button — only for own budgets
+            !isEditingThis && b.owner_id===user?.id && React.createElement("button",{
+              onClick:e=>{e.stopPropagation();setEditingBudgetId(b.id);setEditingBudgetName(b.name);},
+              style:{background:"none",border:"none",cursor:"pointer",padding:4,flexShrink:0,color:"rgba(255,255,255,0.25)"}},
+              React.createElement(Icon,{d:IC.edit,size:13})
+            ),
+            // Save button when editing
+            isEditingThis && React.createElement("button",{
+              onClick:e=>{e.stopPropagation();updateBudgetById(b.id,{name:editingBudgetName});setEditingBudgetId(null);},
+              style:{...S.ghost,fontSize:11,padding:"4px 10px",flexShrink:0}},
+              "Save"
+            ),
+            !isEditingThis && b.id===budget?.id && React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}),
+            // Share button
+            !isEditingThis && b.owner_id===user?.id && plan==="family" && !b._shared && (!profile?.family_role || profile?.family_role==="owner") && React.createElement("button",{
               onClick:e=>{e.stopPropagation();setShareBudgetId(b.id);},
-              style:{background:"none",border:"none",cursor:"pointer",padding:4,
-                color:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"},
-              title:"Manage sharing"},
+              style:{background:"none",border:"none",cursor:"pointer",padding:4,flexShrink:0,
+                color:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"}},
               React.createElement(Icon,{d:IC.users,size:14,stroke:b.is_shared?"#4ade9e":"rgba(255,255,255,0.3)"})
             ),
-            budgets.length > 1 && b.id !== budget?.id && b.owner_id===user?.id && !b._shared && React.createElement("button",{
+            !isEditingThis && budgets.length > 1 && b.id !== budget?.id && b.owner_id===user?.id && !b._shared && React.createElement("button",{
               onClick:e=>{e.stopPropagation();deleteBudget(b.id);},
-              style:{background:"none",border:"none",color:"rgba(255,255,255,0.2)",cursor:"pointer",padding:4}},
+              style:{background:"none",border:"none",color:"rgba(255,255,255,0.2)",cursor:"pointer",padding:4,flexShrink:0}},
               React.createElement(Icon,{d:IC.trash,size:14}))
-          )
-        ),
+          );
+        }),
         // New budget — mini onboarding
         canCreate ? React.createElement("div",{style:{marginTop:16,paddingTop:16,borderTop:"1px solid rgba(255,255,255,0.07)"}},
           React.createElement("p",{style:{fontWeight:700,fontSize:14,marginBottom:14}},"Create new budget"),
