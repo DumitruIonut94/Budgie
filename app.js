@@ -1548,17 +1548,6 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
               React.createElement("p",{style:{fontSize:10,color:rem<0?"#e94560":"rgba(255,255,255,0.3)"}},rem<0?`over ${fmt(Math.abs(rem),incomeCurrency)}`:`${fmt(rem,incomeCurrency)} left`)
             );
           }),
-          filteredExpenses.length > 5 && React.createElement("button",{
-            style:{...S.ghost,width:"100%",marginTop:10,fontSize:12,padding:"8px",
-              color:"rgba(255,255,255,0.5)"},
-            onClick:()=>setShowAllExpenses(!showAllExpenses)},
-            showAllExpenses
-              ? "Show less ↑"
-              : `Show all ${filteredExpenses.length} expenses ↓`
-          )
-          )
-        ),
-
         // Insights card
         React.createElement("div",{style:{...S.card,marginBottom:16}},
           React.createElement("p",{style:{fontSize:11,fontWeight:700,marginBottom:12,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.8px"}},React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.bulb,size:12,stroke:"rgba(255,255,255,0.5)"}), " Insights")),
@@ -2548,8 +2537,13 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
               ),
               React.createElement("p",{style:{fontWeight:800,fontSize:13,color:"#f0f0f5",flexShrink:0}},fmt(parseFloat(exp.amount),ec))
             );
-          })
-        ),
+          }),
+          filteredExpenses.length > 5 && React.createElement("button",{
+            style:{...S.ghost,width:"100%",marginTop:10,fontSize:12,padding:"8px",color:"rgba(255,255,255,0.5)"},
+            onClick:()=>setShowAllExpenses(v=>!v)},
+            showAllExpenses ? "Show less ↑" : `Show all ${filteredExpenses.length} expenses ↓`
+          )
+          )
 
 
       )
