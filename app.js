@@ -1731,7 +1731,6 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
     };
     loadProfiles();
   }, [expenses]);
-  const [profileMap, setProfileMap] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const [filterCat, setFilterCat] = useState("");
   const [sortBy, setSortBy]       = useState("date");
