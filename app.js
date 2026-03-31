@@ -2672,6 +2672,127 @@ function CurrencySettings({budget, token, rates, updateBudget}) {
   );
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FamilyWelcomeModal — shown once after upgrade to Family
+// ─────────────────────────────────────────────────────────────────────────────
+function FamilyWelcomeModal({isOwner, onClose}) {
+  const steps = isOwner ? [
+    {icon:IC.users,   color:"#4ade9e", title:"Invite your family",
+     desc:"Go to Account → Family Members and invite up to 4 people by email. They'll receive a link to join."},
+    {icon:IC.wallet,  color:"#1E88E5", title:"Share a budget",
+     desc:"In the Budget Picker (tap the Budgie logo), tap the 👥 icon next to any budget to choose who can see it."},
+    {icon:IC.receipt, color:"#f97316", title:"Collaborate together",
+     desc:"Shared members can view the budget and add their own expenses. You'll see everything in real time."},
+  ] : [
+    {icon:IC.wallet,  color:"#4ade9e", title:"Shared budgets",
+     desc:"The family owner can share budgets with you. You'll see them in the Budget Picker alongside your private ones."},
+    {icon:IC.receipt, color:"#1E88E5", title:"Add expenses",
+     desc:"You can add expenses to any shared budget, just like your own. They're visible to everyone in the budget."},
+    {icon:IC.lock,    color:"#f97316", title:"Your private budgets",
+     desc:"Create your own private budgets from the Budget Picker. Only you can see them — they're never shared."},
+  ];
+
+  return React.createElement("div",{style:{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",zIndex:600,
+    display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",backdropFilter:"blur(6px)"}},
+    React.createElement("div",{style:{background:"#13131f",borderRadius:24,padding:"28px 20px",
+      width:"100%",maxWidth:420,border:"1px solid rgba(255,255,255,0.08)"}},
+      // Header
+      React.createElement("div",{style:{textAlign:"center",marginBottom:24}},
+        React.createElement("div",{style:{width:64,height:64,borderRadius:99,
+          background:"linear-gradient(135deg,#4ade9e,#1E88E5)",
+          display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}},
+          React.createElement(Icon,{d:IC.family,size:28,stroke:"#fff"})
+        ),
+        React.createElement("h2",{style:{fontWeight:900,fontSize:22,marginBottom:6}},
+          isOwner ? "Welcome to Budgie Family! 🎉" : "You joined a Family budget!"),
+        React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.4)",lineHeight:1.5}},
+          isOwner ? "Here's how to get your family started:" : "Here's what you can do:")
+      ),
+      // Steps
+      steps.map((s,i)=>
+        React.createElement("div",{key:i,style:{display:"flex",gap:14,marginBottom:16,
+          padding:"14px",borderRadius:14,background:`rgba(${rgb(s.color)},0.06)`,
+          border:`1px solid rgba(${rgb(s.color)},0.12)`}},
+          React.createElement("div",{style:{width:40,height:40,borderRadius:12,flexShrink:0,
+            background:`rgba(${rgb(s.color)},0.12)`,
+            display:"flex",alignItems:"center",justifyContent:"center"}},
+            React.createElement(Icon,{d:s.icon,size:18,stroke:s.color})
+          ),
+          React.createElement("div",null,
+            React.createElement("p",{style:{fontWeight:700,fontSize:14,color:s.color,marginBottom:3}},s.title),
+            React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.5)",lineHeight:1.5}},s.desc)
+          )
+        )
+      ),
+      React.createElement("button",{
+        style:{...S.btn("#4ade9e",true),color:"#0a0a0f",width:"100%",marginTop:8,fontSize:15},
+        onClick:onClose},"Let's go! →")
+    )
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HowItWorks — Help section in Account tab
+// ─────────────────────────────────────────────────────────────────────────────
+function HowItWorks({isOwner}) {
+  const [activeTab, setActiveTab] = useState(isOwner ? "owner" : "member");
+  const [expanded, setExpanded] = useState(false);
+
+  const ownerSteps = [
+    {q:"How do I invite someone?", a:"Go to Family Members in Account → enter their email → tap Invite. They'll get an email with a join link."},
+    {q:"How do I share a budget?", a:"Open the Budget Picker (tap the Budgie logo) → tap the 👥 icon next to a budget → toggle which members can access it."},
+    {q:"Can members see all my budgets?", a:"No — only budgets you explicitly share with them. Your other budgets remain private."},
+    {q:"How many members can I invite?", a:"Up to 4 members (5 total including you)."},
+    {q:"Can members invite others?", a:"No — only the Family Owner can send invitations."},
+  ];
+
+  const memberSteps = [
+    {q:"Why don't I see any shared budgets?", a:"The owner needs to share a budget with you first. Ask them to tap the 👥 icon in their Budget Picker."},
+    {q:"Can I add expenses to shared budgets?", a:"Yes — open the shared budget and add expenses normally. The owner and other members will see them."},
+    {q:"Are my private budgets visible to others?", a:"No — budgets you create yourself are only visible to you."},
+    {q:"Can I invite other people to the family?", a:"No — only the Family Owner can send invitations."},
+  ];
+
+  if (!expanded) return React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+        React.createElement(Icon,{d:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01",size:16,stroke:"rgba(255,255,255,0.5)"}),
+        React.createElement("p",{style:{fontWeight:700,fontSize:14}},"How Family works")
+      ),
+      React.createElement("button",{style:{...S.ghost,fontSize:12,padding:"6px 12px"},
+        onClick:()=>setExpanded(true)},"Show")
+    )
+  );
+
+  const items = activeTab==="owner" ? ownerSteps : memberSteps;
+
+  return React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
+    React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:8}},
+        React.createElement(Icon,{d:"M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01",size:16,stroke:"rgba(255,255,255,0.5)"}),
+        React.createElement("p",{style:{fontWeight:700,fontSize:14}},"How Family works")
+      ),
+      React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.3)",cursor:"pointer"},
+        onClick:()=>setExpanded(false)},
+        React.createElement(Icon,{d:IC.x,size:16}))
+    ),
+    React.createElement("div",{style:{display:"flex",gap:6,marginBottom:14}},
+      ["owner","member"].map(t=>
+        React.createElement("button",{key:t,style:S.pill(activeTab===t,"#4ade9e"),onClick:()=>setActiveTab(t)},
+          t==="owner"?"Owner":"Member")
+      )
+    ),
+    items.map((item,i)=>
+      React.createElement("div",{key:i,style:{marginBottom:i<items.length-1?12:0,paddingBottom:i<items.length-1?12:0,
+        borderBottom:i<items.length-1?"1px solid rgba(255,255,255,0.06)":"none"}},
+        React.createElement("p",{style:{fontSize:13,fontWeight:600,color:"rgba(255,255,255,0.8)",marginBottom:4}},item.q),
+        React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.45)",lineHeight:1.5}},item.a)
+      )
+    )
+  );
+}
+
 function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onRequestPush,notifPrefs,onToggleNotif,onUpdateBudget,rates}) {
   function handlePortal() {
     window.location.href = "https://billing.stripe.com/p/login/test_fZu14n7ht2aI76ycdWbsc00";
@@ -2785,6 +2906,11 @@ function AccountTab({user,profile,token,budget,aiCredits,onSignOut,onUpgrade,onR
       )
     ),
 
+    // How Family works
+    profile?.plan==="family" && React.createElement(HowItWorks,{
+      isOwner:!profile?.family_role||profile?.family_role==="owner"
+    }),
+
     // Actions
     React.createElement("div",{style:{display:"flex",flexDirection:"column",gap:10}},
       profile?.plan!=="free"&&(!profile?.family_role||profile?.family_role==="owner")&&React.createElement("button",{style:{...S.ghost,width:"100%",textAlign:"left"},onClick:handlePortal},
@@ -2830,7 +2956,8 @@ function BudgetApp() {
     daily_reminder: true, weekly_summary: true,
   });
   const [showMethodCard, setShowMethodCard] = useState(false);
-  const [activeCatTooltip, setActiveCatTooltip] = useState(null); // "needs"|"wants"|"savings"
+  const [activeCatTooltip, setActiveCatTooltip] = useState(null);
+  const [showFamilyWelcome, setShowFamilyWelcome] = useState(false); // "needs"|"wants"|"savings"
 
   // ── Auth check on mount ──────────────────────────────────────────────────
   // Check for invite token in URL
@@ -2983,6 +3110,13 @@ function BudgetApp() {
       if (prof.plan === "family" && !prof.family_role) prof.family_role = "owner";
       console.log("final profile:", prof, "family_role:", prof.family_role);
       setProfile(prof);
+
+      // Show Family welcome if first time on family plan
+      const welcomeKey = `budgie_family_welcome_${userData.id}`;
+      if (prof.plan === "family" && !safeStorage.get(welcomeKey)) {
+        safeStorage.set(welcomeKey, "1");
+        setShowFamilyWelcome(true);
+      }
 
       // Load notification preferences
       try {
@@ -3634,6 +3768,10 @@ function ShareBudgetModal({budgetId, budgets, token, userId, onClose, onUpdate})
       onUpdate:updateBudgetById
     }),
     showMethodCard && React.createElement(BudgetMethodCard,{onDismiss:()=>setShowMethodCard(false)}),
+    showFamilyWelcome && React.createElement(FamilyWelcomeModal,{
+      isOwner:!profile?.family_role||profile?.family_role==="owner",
+      onClose:()=>setShowFamilyWelcome(false)
+    }),
     activeCatTooltip && React.createElement(CategoryTooltip,{cat:activeCatTooltip,onClose:()=>setActiveCatTooltip(null)}),
     React.createElement(RatesModal,{show:showRates,onClose:()=>setShowRates(false),rates,liveRates,ratesLoading,onSave:(cur,val)=>updateBudget({rates:{...(budget?.rates||{}),[cur]:val}}),onResetToLive:(cur)=>updateBudget({rates:{...(budget?.rates||{}),  [cur]:liveRates[cur]}})}),
     React.createElement(PaydayResetModal,{show:showPaydayReset,userName:profile?.name,income:budget?.monthly_income,currency:incomeCurrency,rates,
