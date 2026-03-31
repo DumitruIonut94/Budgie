@@ -1489,17 +1489,142 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
   const income=parseFloat(budget?.monthly_income)||0;
   const sym=CUR_SYM[incomeCurrency];
 
+  const contentDiv = income>0 ? React.createElement(React.Fragment,null,
+    React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}},
+      [{key:"needs",label:"Needs",pct:50,budget:income*0.5,color:"#f97316"},
+       {key:"wants",label:"Wants",pct:30,budget:income*0.3,color:"#1E88E5"},
+       {key:"savings",label:"Savings",pct:20,budget:income*0.2,color:"#43A047"}].map(item=>{
+        const spent=spentByType[item.key]||0, rem=item.budget-spent;
+        return React.createElement("div",{key:item.key,
+          style:{...S.card,padding:"14px 10px",textAlign:"center",cursor:"pointer"},
+          onClick:()=>onCatInfo&&onCatInfo(item.key)},
+          React.createElement("div",{style:{position:"relative",display:"inline-block",marginBottom:8}},
+            React.createElement(CircleProgress,{pct:item.budget>0?(spent/item.budget)*100:0,color:item.color,size:62,stroke:5}),
+            React.createElement("div",{style:{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}},
+              React.createElement("span",{style:{fontSize:13,fontWeight:800,color:item.color}},item.pct,"%"))
+          ),
+          React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.45)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:2}},item.label),
+          React.createElement("p",{style:{fontSize:12,fontWeight:800,color:item.color}},fmt(item.budget,incomeCurrency)),
+          React.createElement("p",{style:{fontSize:10,color:rem<0?"#e94560":"rgba(255,255,255,0.3)"}},rem<0?`over ${fmt(Math.abs(rem),incomeCurrency)}`:`${fmt(rem,incomeCurrency)} left`)
+        );
+      })
+    ),
+    React.createElement("div",{style:{...S.card,marginBottom:16}},
+      React.createElement("p",{style:{fontSize:11,fontWeight:700,marginBottom:12,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.8px"}},React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.bulb,size:12,stroke:"rgba(255,255,255,0.5)"}), " Insights")),
+      (()=>{
+        const insights = [];
+        const daysInPeriod = 30;
+        const today = new Date();
+        const payday = budget?.payday || 1;
+        const dayOfMonth = today.getDate();
+        const daysLeft = dayOfMonth >= payday ? daysInPeriod - (dayOfMonth - payday) : payday - dayOfMonth;
+        const daysElapsed = daysInPeriod - daysLeft;
+        const expectedSpendPct = daysElapsed / daysInPeriod;
+        [["needs","#f97316",0.5],["wants","#1E88E5",0.3],["savings","#43A047",0.2]].forEach(([cat,color,pct])=>{
+          const catBudget = income * pct;
+          const catSpent  = spentByType[cat] || 0;
+          const spentPct  = catBudget > 0 ? catSpent / catBudget : 0;
+          if (cat === "savings") {
+            if (catSpent === 0 && daysElapsed > 3) insights.push({emoji:"save",msg:`No savings yet this period — set aside ${fmt(catBudget,incomeCurrency)} by payday!`,color:"#43A047"});
+            else if (spentPct >= 1.0) insights.push({emoji:"check",msg:`Excellent! You've hit your savings goal of ${fmt(catBudget,incomeCurrency)} 🎯`,color:"#4ade9e"});
+            else if (spentPct >= 0.5) insights.push({emoji:"save",msg:`Good progress — ${fmt(catSpent,incomeCurrency)} saved, ${fmt(catBudget-catSpent,incomeCurrency)} to go!`,color:"#43A047"});
+            else if (daysElapsed > 10) insights.push({emoji:"save",msg:`Try to save ${fmt(catBudget,incomeCurrency)} this period — you're at ${Math.round(spentPct*100)}%`,color:"#1E88E5"});
+            return;
+          }
+          const label = cat.charAt(0).toUpperCase()+cat.slice(1);
+          if (spentPct >= 1.0) insights.push({emoji:"alert",msg:`${label} is over budget by ${fmt(catSpent-catBudget,incomeCurrency)}`,color:"#e94560"});
+          else if (spentPct >= 0.8) insights.push({emoji:"warn",msg:`${label} is at ${Math.round(spentPct*100)}% — ${fmt(catBudget-catSpent,incomeCurrency)} left`,color:"#1E88E5"});
+          else if (spentPct < expectedSpendPct * 0.6 && daysElapsed > 5) insights.push({emoji:"check",msg:`${label} is on track — ${Math.round(spentPct*100)}% used`,color});
+        });
+        if (daysElapsed > 3 && income > 0) {
+          const dailyRate = totalSpent / daysElapsed;
+          const projected = dailyRate * daysInPeriod;
+          if (projected > income * 1.1) insights.push({emoji:"trend",msg:`At this rate you'll spend ${fmt(projected,incomeCurrency)} this period`,color:"#1E88E5"});
+          else if (projected < income * 0.7) insights.push({emoji:"save",msg:`Great pace! Projected to save ${fmt(income-projected,incomeCurrency)}`,color:"#4ade9e"});
+        }
+        if (daysLeft <= 5 && daysLeft > 0) insights.push({emoji:"cal",msg:`${daysLeft} day${daysLeft===1?"":"s"} left in this period`,color:"rgba(255,255,255,0.5)"});
+        if (insights.length === 0) insights.push({emoji:"good",msg:"Everything looks good this period!", color:"#4ade9e"});
+        return insights.slice(0,3).map((ins,i) =>
+          React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<insights.slice(0,3).length-1?10:0,padding:"4px 0"}},
+            React.createElement("div",{style:{width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+              ins.emoji==="alert"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#e94560"}):
+              ins.emoji==="warn"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#1E88E5"}):
+              ins.emoji==="check"?React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}):
+              ins.emoji==="trend"?React.createElement(Icon,{d:IC.trending,size:16,stroke:"#1E88E5"}):
+              ins.emoji==="save"?React.createElement(Icon,{d:IC.thumbsup,size:16,stroke:"#4ade9e"}):
+              ins.emoji==="cal"?React.createElement(Icon,{d:IC.calendar,size:16,stroke:"rgba(255,255,255,0.5)"}):
+              React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"})
+            ),
+            React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.4}},ins.msg)
+          )
+        );
+      })()
+    ),
+    allExpenses.length > 0 && React.createElement("div",{style:{...S.card,marginBottom:16}},
+      React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
+        React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.8px"}},React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.clock,size:12,stroke:"rgba(255,255,255,0.5)"}), " Recent")),
+        React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:11,cursor:"pointer"},onClick:()=>onSwitchTab("expenses")},"See all →")
+      ),
+      allExpenses.slice(0,4).map((exp,i) => {
+        const cc = CAT_COLOR[exp.category] || "#f0f0f5";
+        const ec = exp.currency || incomeCurrency;
+        return React.createElement("div",{key:exp.id||i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<3?10:0}},
+          React.createElement("div",{style:{width:34,height:34,borderRadius:10,background:`rgba(${rgb(cc)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
+            React.createElement(Icon,{d:exp.type==="recurring"?IC.pin:IC.receipt,size:15,stroke:cc})
+          ),
+          React.createElement("div",{style:{flex:1,minWidth:0}},
+            React.createElement("p",{style:{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},exp.name),
+            React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},exp.expense_date||"")
+          ),
+          React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"#f0f0f5",flexShrink:0}},fmt(parseFloat(exp.amount),ec))
+        );
+      })
+    ),
+    React.createElement("div",{style:{...S.card,marginBottom:20,display:"flex"}},
+      [{label:"Total Spent",value:fmt(totalSpent,incomeCurrency),color:totalSpent>income?"#e94560":"#f0f0f5"},
+       {label:"Remaining",value:fmt(Math.abs(income-totalSpent),incomeCurrency),color:income-totalSpent<0?"#e94560":"#43A047"},
+       {label:"Expenses",value:String(allExpenses.length),color:"#f0f0f5"}].map((item,i)=>
+        React.createElement("div",{key:i,style:{flex:1,textAlign:"center",borderRight:i<2?"1px solid rgba(255,255,255,0.07)":"none"}},
+          React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px",marginBottom:4}},item.label),
+          React.createElement("p",{style:{fontSize:15,fontWeight:800,color:item.color}},item.value)
+        )
+      )
+    ),
+    plan==="free" ? React.createElement("div",{style:{...S.card,marginBottom:20,background:"rgba(74,222,158,0.06)",border:"1px solid rgba(74,222,158,0.2)",cursor:"pointer"},onClick:onUpgrade},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
+        React.createElement(Icon,{d:IC.crown,size:20,stroke:"#4ade9e"}),
+        React.createElement("div",{style:{flex:1}},
+          React.createElement("p",{style:{fontWeight:700,fontSize:14,color:"#4ade9e"}},"Upgrade to Pro"),
+          React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:2}},"Unlock history, export & more — from €2.99/mo")
+        ),
+        React.createElement(Icon,{d:IC.history,size:16,stroke:"rgba(255,255,255,0.3)"})
+      )
+    ) : null
+  ) : React.createElement("div",{style:{...S.card,textAlign:"center",padding:"40px 24px"}},
+    React.createElement("div",{style:{fontSize:48,marginBottom:12}},"💰"),
+    React.createElement("p",{style:{fontWeight:700,fontSize:17,marginBottom:8}},"Set your monthly income"),
+    React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:20}},"Go to Account tab to set your income"),
+    React.createElement("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:14,padding:16,textAlign:"left"}},
+      [["🟠","50%","Needs","Rent, food, bills"],["🟡","30%","Wants","Dining, shopping, fun"],["🔵","20%","Savings","Emergency fund, investments"]].map(([e,p,l,d])=>
+        React.createElement("div",{key:l,style:{display:"flex",gap:10,marginBottom:10}},
+          React.createElement("span",null,e),
+          React.createElement("div",null,
+            React.createElement("span",{style:{fontWeight:700,fontSize:13}},p," ",l),
+            React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",margin:0}},d)
+          )
+        )
+      )
+    )
+  );
+
   return React.createElement("div",null,
     React.createElement("div",{style:S.header},
       React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}},
-        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10},onClick:onOpenBudgetPicker,style:{display:"flex",alignItems:"center",gap:10,cursor:budgetsCount>1||(plan!=="free")?"pointer":"default"}},
+        React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,cursor:budgetsCount>1||(plan!=="free")?"pointer":"default"},onClick:onOpenBudgetPicker},
           React.createElement(BudgieLogo,{size:44}),
           React.createElement("div",null,
             React.createElement("p",{style:{fontSize:26,fontWeight:900,letterSpacing:"0.5px",lineHeight:1.2,background:"linear-gradient(90deg,#4ade9e,#43A047)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",paddingRight:"4px",paddingBottom:"2px",display:"inline-block"}},"Budgie"),
-            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,
-              padding:"3px 8px",borderRadius:6,
-              background:(plan!=="free"||budgetsCount>1)?"rgba(255,255,255,0.06)":"transparent",
-              border:(plan!=="free"||budgetsCount>1)?"1px solid rgba(255,255,255,0.08)":"none"}},
+            React.createElement("div",{style:{display:"flex",alignItems:"center",gap:5,padding:"3px 8px",borderRadius:6,background:(plan!=="free"||budgetsCount>1)?"rgba(255,255,255,0.06)":"transparent",border:(plan!=="free"||budgetsCount>1)?"1px solid rgba(255,255,255,0.08)":"none"}},
               React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.5)",fontWeight:600,letterSpacing:"1px",textTransform:"uppercase"}},
                 budgetName || (userName ? `${userName}'s Budget` : "Budget Tracker")),
               (plan!=="free"||budgetsCount>1) && React.createElement(Icon,{d:"M6 9l6 6 6-6",size:12,stroke:"rgba(255,255,255,0.3)"})
@@ -1512,192 +1637,20 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             React.createElement(Icon,{d:IC.cog,size:13})," Rates")
         )
       ),
-      false ? null : React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12}},
+      React.createElement("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:12}},
         React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"#f0f0f5"}},income>0?income.toLocaleString("ro-RO"):"—"),
         React.createElement("span",{style:{fontSize:36,fontWeight:700,color:"rgba(255,255,255,0.4)"}},sym),
         plan==="family"&&onShareBudget&&!budget?._shared&&React.createElement("button",{
-          style:{marginLeft:4,background:"none",border:"1px solid rgba(74,222,158,0.3)",borderRadius:8,
-            padding:"4px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,
-            color:budget?.is_shared?"#4ade9e":"rgba(255,255,255,0.4)"},
+          style:{marginLeft:4,background:"none",border:"1px solid rgba(74,222,158,0.3)",borderRadius:8,padding:"4px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4,color:budget?.is_shared?"#4ade9e":"rgba(255,255,255,0.4)"},
           onClick:onShareBudget},
           React.createElement(Icon,{d:IC.users,size:13,stroke:budget?.is_shared?"#4ade9e":"rgba(255,255,255,0.4)"}),
           React.createElement("span",{style:{fontSize:11,fontWeight:600}},budget?.is_shared?"Shared":"Share")
         )
-      ),
-
-    ),
-
-    React.createElement("div",{style:{padding:"0 16px"}},
-      income>0 ? React.createElement(React.Fragment,null,
-        // 50-30-20 cards
-        React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:20}},
-          [{key:"needs",label:"Needs",pct:50,budget:income*0.5,color:"#f97316"},
-           {key:"wants",label:"Wants",pct:30,budget:income*0.3,color:"#1E88E5"},
-           {key:"savings",label:"Savings",pct:20,budget:income*0.2,color:"#43A047"}].map(item=>{
-            const spent=spentByType[item.key]||0, rem=item.budget-spent;
-            return React.createElement("div",{key:item.key,
-              style:{...S.card,padding:"14px 10px",textAlign:"center",cursor:"pointer"},
-              onClick:()=>onCatInfo&&onCatInfo(item.key)},
-              React.createElement("div",{style:{position:"relative",display:"inline-block",marginBottom:8}},
-                React.createElement(CircleProgress,{pct:item.budget>0?(spent/item.budget)*100:0,color:item.color,size:62,stroke:5}),
-                React.createElement("div",{style:{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center"}},
-                  React.createElement("span",{style:{fontSize:13,fontWeight:800,color:item.color}},item.pct,"%"))
-              ),
-              React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.45)",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:2}},item.label),
-              React.createElement("p",{style:{fontSize:12,fontWeight:800,color:item.color}},fmt(item.budget,incomeCurrency)),
-              React.createElement("p",{style:{fontSize:10,color:rem<0?"#e94560":"rgba(255,255,255,0.3)"}},rem<0?`over ${fmt(Math.abs(rem),incomeCurrency)}`:`${fmt(rem,incomeCurrency)} left`)
-            );
-          })
-        ),
-
-        // Insights card
-        React.createElement("div",{style:{...S.card,marginBottom:16}},
-          React.createElement("p",{style:{fontSize:11,fontWeight:700,marginBottom:12,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.8px"}},React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.bulb,size:12,stroke:"rgba(255,255,255,0.5)"}), " Insights")),
-          (()=>{
-            const insights = [];
-            const daysInPeriod = 30;
-            const today = new Date();
-            const payday = budget?.payday || 1;
-            const dayOfMonth = today.getDate();
-            const daysLeft = dayOfMonth >= payday
-              ? daysInPeriod - (dayOfMonth - payday)
-              : payday - dayOfMonth;
-            const daysElapsed = daysInPeriod - daysLeft;
-            const expectedSpendPct = daysElapsed / daysInPeriod;
-
-            // Per category insights
-            [["needs","#f97316",0.5],["wants","#1E88E5",0.3],["savings","#43A047",0.2]].forEach(([cat,color,pct])=>{
-              const catBudget = income * pct;
-              const catSpent  = spentByType[cat] || 0;
-              const spentPct  = catBudget > 0 ? catSpent / catBudget : 0;
-
-              if (cat === "savings") {
-                // For savings, more = better — encourage saving
-                if (catSpent === 0 && daysElapsed > 3) {
-                  insights.push({emoji:"save",msg:`No savings yet this period — set aside ${fmt(catBudget,incomeCurrency)} by payday!`,color:"#43A047"});
-                } else if (spentPct >= 1.0) {
-                  insights.push({emoji:"check",msg:`Excellent! You've hit your savings goal of ${fmt(catBudget,incomeCurrency)} 🎯`,color:"#4ade9e"});
-                } else if (spentPct >= 0.5) {
-                  insights.push({emoji:"save",msg:`Good progress — ${fmt(catSpent,incomeCurrency)} saved, ${fmt(catBudget-catSpent,incomeCurrency)} to go!`,color:"#43A047"});
-                } else if (daysElapsed > 10) {
-                  insights.push({emoji:"save",msg:`Try to save ${fmt(catBudget,incomeCurrency)} this period — you're at ${Math.round(spentPct*100)}%`,color:"#1E88E5"});
-                }
-                return;
-              }
-
-              const label = cat.charAt(0).toUpperCase()+cat.slice(1);
-              if (spentPct >= 1.0) {
-                insights.push({emoji:"alert",msg:`${label} is over budget by ${fmt(catSpent-catBudget,incomeCurrency)}`,color:"#e94560"});
-              } else if (spentPct >= 0.8) {
-                insights.push({emoji:"warn",msg:`${label} is at ${Math.round(spentPct*100)}% — ${fmt(catBudget-catSpent,incomeCurrency)} left`,color:"#1E88E5"});
-              } else if (spentPct < expectedSpendPct * 0.6 && daysElapsed > 5) {
-                insights.push({emoji:"check",msg:`${label} is on track — ${Math.round(spentPct*100)}% used`,color:color});
-              }
-            });
-
-            // Spending velocity
-            if (daysElapsed > 3 && income > 0) {
-              const dailyRate = totalSpent / daysElapsed;
-              const projected = dailyRate * daysInPeriod;
-              if (projected > income * 1.1) {
-                insights.push({emoji:"trend",msg:`At this rate you'll spend ${fmt(projected,incomeCurrency)} this period`,color:"#1E88E5"});
-              } else if (projected < income * 0.7) {
-                insights.push({emoji:"save",msg:`Great pace! Projected to save ${fmt(income-projected,incomeCurrency)}`,color:"#4ade9e"});
-              }
-            }
-
-            // Days left
-            if (daysLeft <= 5 && daysLeft > 0) {
-              insights.push({emoji:"cal",msg:`${daysLeft} day${daysLeft===1?"":"s"} left in this period`,color:"rgba(255,255,255,0.5)"});
-            }
-
-            if (insights.length === 0) {
-              insights.push({emoji:"good",msg:"Everything looks good this period!", color:"#4ade9e"});
-            }
-
-            return insights.slice(0,3).map((ins,i) =>
-              React.createElement("div",{key:i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<insights.slice(0,3).length-1?10:0,padding:"4px 0"}},
-                React.createElement("div",{style:{width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
-                ins.emoji==="alert"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#e94560"}):
-                ins.emoji==="warn"?React.createElement(Icon,{d:IC.alert,size:16,stroke:"#1E88E5"}):
-                ins.emoji==="check"?React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"}):
-                ins.emoji==="trend"?React.createElement(Icon,{d:IC.trending,size:16,stroke:"#1E88E5"}):
-                ins.emoji==="save"?React.createElement(Icon,{d:IC.thumbsup,size:16,stroke:"#4ade9e"}):
-                ins.emoji==="cal"?React.createElement(Icon,{d:IC.calendar,size:16,stroke:"rgba(255,255,255,0.5)"}):
-                React.createElement(Icon,{d:IC.check,size:16,stroke:"#4ade9e"})
-              ),
-                React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.7)",lineHeight:1.4}},ins.msg)
-              )
-            );
-          })()
-        ),
-
-        // Recent Expenses
-        allExpenses.length > 0 && React.createElement("div",{style:{...S.card,marginBottom:16}},
-          React.createElement("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}},
-            React.createElement("p",{style:{fontSize:11,fontWeight:700,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",letterSpacing:"0.8px"}},React.createElement(React.Fragment,null,React.createElement(Icon,{d:IC.clock,size:12,stroke:"rgba(255,255,255,0.5)"}), " Recent")),
-            React.createElement("button",{style:{background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:11,cursor:"pointer"},
-              onClick:()=>onSwitchTab("expenses")},"See all →")
-          ),
-          allExpenses.slice(0,4).map((exp,i) => {
-            const cc = CAT_COLOR[exp.category] || "#f0f0f5";
-            const ec = exp.currency || incomeCurrency;
-            return React.createElement("div",{key:exp.id||i,style:{display:"flex",alignItems:"center",gap:10,marginBottom:i<3?10:0}},
-              React.createElement("div",{style:{width:34,height:34,borderRadius:10,background:`rgba(${rgb(cc)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
-                React.createElement(Icon,{d:exp.type==="recurring"?IC.pin:IC.receipt,size:15,stroke:cc})
-              ),
-              React.createElement("div",{style:{flex:1,minWidth:0}},
-                React.createElement("p",{style:{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},exp.name),
-                React.createElement("p",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},exp.expense_date||"")
-              ),
-              React.createElement("p",{style:{fontSize:13,fontWeight:800,color:"#f0f0f5",flexShrink:0}},fmt(parseFloat(exp.amount),ec))
-            );
-          })
-        ),
-
-        // Summary
-        React.createElement("div",{style:{...S.card,marginBottom:20,display:"flex"}},
-          [{label:"Total Spent",value:fmt(totalSpent,incomeCurrency),color:totalSpent>income?"#e94560":"#f0f0f5"},
-           {label:"Remaining",value:fmt(Math.abs(income-totalSpent),incomeCurrency),color:income-totalSpent<0?"#e94560":"#43A047"},
-           {label:"Expenses",value:String(allExpenses.length),color:"#f0f0f5"}].map((item,i)=>
-            React.createElement("div",{key:i,style:{flex:1,textAlign:"center",borderRight:i<2?"1px solid rgba(255,255,255,0.07)":"none"}},
-              React.createElement("p",{style:{fontSize:10,color:"rgba(255,255,255,0.35)",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.4px",marginBottom:4}},item.label),
-              React.createElement("p",{style:{fontSize:15,fontWeight:800,color:item.color}},item.value)
-            )
-          )
-        ),
-
-        // Upgrade banner for free users
-        plan==="free"&&React.createElement("div",{style:{...S.card,marginBottom:20,background:"rgba(74,222,158,0.06)",border:"1px solid rgba(74,222,158,0.2)",cursor:"pointer"},onClick:onUpgrade},
-          React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
-            React.createElement(Icon,{d:IC.crown,size:20,stroke:"#4ade9e"}),
-            React.createElement("div",{style:{flex:1}},
-              React.createElement("p",{style:{fontWeight:700,fontSize:14,color:"#4ade9e"}},"Upgrade to Pro"),
-              React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.4)",marginTop:2}},"Unlock history, export & more — from €2.99/mo")
-            ),
-            React.createElement(Icon,{d:IC.history,size:16,stroke:"rgba(255,255,255,0.3)"})
-          )
-        )
-      ) : React.createElement("div",{style:{...S.card,textAlign:"center",padding:"40px 24px"}},
-        React.createElement("div",{style:{fontSize:48,marginBottom:12}},"💰"),
-        React.createElement("p",{style:{fontWeight:700,fontSize:17,marginBottom:8}},"Set your monthly income"),
-        React.createElement("p",{style:{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:20}},"Tap the amount above to get started"),
-        React.createElement("div",{style:{background:"rgba(255,255,255,0.04)",borderRadius:14,padding:16,textAlign:"left"}},
-          [["🟠","50%","Needs","Rent, food, bills"],["🟡","30%","Wants","Dining, shopping, fun"],["🔵","20%","Savings","Emergency fund, investments"]].map(([e,p,l,d])=>
-            React.createElement("div",{key:l,style:{display:"flex",gap:10,marginBottom:10}},
-              React.createElement("span",null,e),
-              React.createElement("div",null,
-                React.createElement("span",{style:{fontWeight:700,fontSize:13}},p," ",l),
-                React.createElement("p",{style:{fontSize:12,color:"rgba(255,255,255,0.35)",margin:0}},d)
-              )
-            )
-          )
-        )
       )
-    )
+    ),
+    React.createElement("div",{style:{padding:"0 16px"}},contentDiv)
   );
 }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Expenses Tab
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1705,6 +1658,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
   const [activeType,setActiveType]=useState("recurring");
   const [search, setSearch]       = useState("");
   const [showBudgetDropdown, setShowBudgetDropdown] = useState(false);
+  const [showAllExpenses, setShowAllExpenses] = useState(false);
 
   useEffect(()=>{
     // profileMap is populated via token passed as prop
@@ -1762,7 +1716,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
     const er=exp.custom_rate?{...rates,[exp.custom_rate_cur||ec]:exp.custom_rate}:rates;
     const cv=convert(parseFloat(exp.amount)||0,ec,incomeCurrency,er);
     const showCV=ec!==incomeCurrency;
-    const addedByName = profileMap[exp.added_by];
+    const addedByName = exp.added_by_name || profileMap[exp.added_by];
     return React.createElement("div",{
       onClick:()=>onOpenEdit(exp),
       style:{...S.card,marginBottom:8,display:"flex",alignItems:"center",gap:12,cursor:"pointer",transition:"background 0.15s"},
@@ -2517,11 +2471,12 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
             `${filteredExpenses.length} result${filteredExpenses.length!==1?"s":""}`),
           histLoading ? React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.3)",textAlign:"center",padding:"16px 0"}},"Loading...") :
           filteredExpenses.length===0 ? React.createElement("p",{style:{fontSize:13,color:"rgba(255,255,255,0.3)",textAlign:"center",padding:"16px 0"}},
-            expSearch||expFilterCat?"No expenses match your search":"No expenses for this period") :
-          filteredExpenses.map((exp,i)=>{
+            expSearch||expFilterCat||expFromDate||expToDate?"No expenses match your filters":"No expenses yet") :
+          React.createElement(React.Fragment,null,
+          (showAllExpenses ? filteredExpenses : filteredExpenses.slice(0,5)).map((exp,i)=>{
             const cc=CAT_COLOR[exp.category]||"#f0f0f5";
             const ec=exp.currency||"RON";
-            const addedByName = profileMap[exp.added_by];
+            const addedByName = exp.added_by_name || profileMap[exp.added_by];
             return React.createElement("div",{key:exp.id||i,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<filteredExpenses.length-1?"1px solid rgba(255,255,255,0.05)":"none"}},
               React.createElement("div",{style:{width:34,height:34,borderRadius:10,background:`rgba(${rgb(cc)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
                 React.createElement(Icon,{d:exp.type==="recurring"?IC.pin:IC.receipt,size:15,stroke:cc})
@@ -2537,8 +2492,13 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
               ),
               React.createElement("p",{style:{fontWeight:800,fontSize:13,color:"#f0f0f5",flexShrink:0}},fmt(parseFloat(exp.amount),ec))
             );
-          })
-        ),
+          }),
+          filteredExpenses.length > 5 && React.createElement("button",{
+            style:{...S.ghost,width:"100%",marginTop:10,fontSize:12,padding:"8px",color:"rgba(255,255,255,0.5)"},
+            onClick:()=>setShowAllExpenses(v=>!v)},
+            showAllExpenses ? "Show less ↑" : `Show all ${filteredExpenses.length} expenses ↓`
+          )
+          )
 
 
       )
@@ -3503,7 +3463,8 @@ function BudgetApp() {
     const fc=form.currency!=="RON"?form.currency:incomeCurrency;
     const cr=form.customRate?parseFloat(form.customRate)||null:null;
     const targetBudId = form.targetBudgetId || budget.id;
-    const entry={budget_id:targetBudId,added_by:user.id,type,name:form.name,amount:parseFloat(form.amount),currency:form.currency||incomeCurrency,custom_rate_cur:fc,custom_rate:cr,category:form.category,subcat:form.subcat,expense_date:new Date().toISOString().split("T")[0]};
+    const addedByName = profile?.name || user?.email?.split("@")[0] || "Unknown";
+    const entry={budget_id:targetBudId,added_by:user.id,added_by_name:addedByName,type,name:form.name,amount:parseFloat(form.amount),currency:form.currency||incomeCurrency,custom_rate_cur:fc,custom_rate:cr,category:form.category,subcat:form.subcat,expense_date:new Date().toISOString().split("T")[0]};
 
     if(editingExpense) {
       const db = await sb.from("expenses", authToken);
