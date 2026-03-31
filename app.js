@@ -1666,7 +1666,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
         ),
 
         // Upgrade banner for free users
-        plan==="free"&&React.createElement("div",{style:{...S.card,marginBottom:20,background:"rgba(74,222,158,0.06)",border:"1px solid rgba(74,222,158,0.2)",cursor:"pointer"},onClick:onUpgrade},
+        plan==="free" ? React.createElement("div",{style:{...S.card,marginBottom:20,background:"rgba(74,222,158,0.06)",border:"1px solid rgba(74,222,158,0.2)",cursor:"pointer"},onClick:onUpgrade},
           React.createElement("div",{style:{display:"flex",alignItems:"center",gap:12}},
             React.createElement(Icon,{d:IC.crown,size:20,stroke:"#4ade9e"}),
             React.createElement("div",{style:{flex:1}},
@@ -1675,7 +1675,7 @@ function HomeTab({budget,expenses,updateBudget,incomeCurrency,rates,spentByType,
             ),
             React.createElement(Icon,{d:IC.history,size:16,stroke:"rgba(255,255,255,0.3)"})
           )
-        ),
+        ) : null
       ) : React.createElement("div",{style:{...S.card,textAlign:"center",padding:"40px 24px"}},
         React.createElement("div",{style:{fontSize:48,marginBottom:12}},"💰"),
         React.createElement("p",{style:{fontWeight:700,fontSize:17,marginBottom:8}},"Set your monthly income"),
