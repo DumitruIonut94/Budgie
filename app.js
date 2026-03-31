@@ -1705,6 +1705,33 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
   const [activeType,setActiveType]=useState("recurring");
   const [search, setSearch]       = useState("");
   const [showBudgetDropdown, setShowBudgetDropdown] = useState(false);
+  const [profileMap, setProfileMap] = useState({});
+
+  useEffect(()=>{
+    if (!budget?.id) return;
+    // Load profile names for added_by
+    const loadProfiles = async () => {
+      try {
+        const ids = [...new Set(expenses.map(e=>e.added_by).filter(Boolean))];
+        if (ids.length === 0) return;
+        const map = {};
+        const profDb = await sb.from("profiles", null);
+        // Use anon key for profiles (own profile visible)
+        await Promise.all(ids.map(async uid => {
+          try {
+            const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?select=id,name&id=eq.${uid}`,{
+              headers: authHeaders(null)
+            });
+            const data = await r.json();
+            if (Array.isArray(data) && data[0]) map[uid] = data[0].name || "Member";
+          } catch(e) {}
+        }));
+        setProfileMap(map);
+      } catch(e) {}
+    };
+    loadProfiles();
+  }, [expenses]);
+  const [profileMap, setProfileMap] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const [filterCat, setFilterCat] = useState("");
   const [sortBy, setSortBy]       = useState("date");
@@ -1758,6 +1785,7 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
     const er=exp.custom_rate?{...rates,[exp.custom_rate_cur||ec]:exp.custom_rate}:rates;
     const cv=convert(parseFloat(exp.amount)||0,ec,incomeCurrency,er);
     const showCV=ec!==incomeCurrency;
+    const addedByName = profileMap[exp.added_by];
     return React.createElement("div",{
       onClick:()=>onOpenEdit(exp),
       style:{...S.card,marginBottom:8,display:"flex",alignItems:"center",gap:12,cursor:"pointer",transition:"background 0.15s"},
@@ -1770,7 +1798,9 @@ function ExpensesTab({expenses,updateBudget,incomeCurrency,rates,onOpenAdd,onOpe
         React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}},
           React.createElement("span",{style:{fontSize:11,padding:"2px 7px",borderRadius:99,background:`rgba(${rgb(cc)},0.15)`,color:cc,fontWeight:600}},exp.subcat||exp.category),
           exp.expense_date&&activeType==="recurring"&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},exp.expense_date),
-          exp.custom_rate&&React.createElement("span",{style:{fontSize:10,color:"#1E88E5"}},"custom rate")
+          exp.custom_rate&&React.createElement("span",{style:{fontSize:10,color:"#1E88E5"}},"custom rate"),
+          addedByName&&React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},
+            "· ",addedByName)
         )
       ),
       React.createElement("div",{style:{textAlign:"right",flexShrink:0}},
@@ -1920,19 +1950,15 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token,budge
   async function fetchExpensesForRange(fromP, toP) {
     if (!budget?.id || !token) return [];
     try {
-      // Calculate date range from period strings
-      const fromDate = fromP ? `${fromP}-01` : "2000-01-01";
-      // Last day of toPeriod month
-      let toDate = "2099-12-31";
+      const db = await sb.from("expenses", token);
+      let filters = `budget_id=eq.${budget.id}&order=expense_date.desc`;
+      if (fromP) filters += `&expense_date=gte.${fromP}-01`;
       if (toP) {
         const [y,m] = toP.split("-").map(Number);
         const lastDay = new Date(y, m, 0).getDate();
-        toDate = `${toP}-${String(lastDay).padStart(2,"0")}`;
+        filters += `&expense_date=lte.${toP}-${String(lastDay).padStart(2,"0")}`;
       }
-      const db = await sb.from("expenses", token);
-      const rows = await db.select("*", 
-        `budget_id=eq.${budget.id}&expense_date=gte.${fromDate}&expense_date=lte.${toDate}&order=expense_date.asc`
-      );
+      const rows = await db.select("*", filters);
       return Array.isArray(rows) ? rows : [];
     } catch(e) { 
       console.error("fetchExpensesForRange error:", e);
@@ -1952,15 +1978,33 @@ function HistoryTab({history,plan,onUpgrade,userName,budget,expenses,token,budge
     return true;
   });
 
-  // Load expenses when periods change
+  // Load expenses — all by default, filtered when range selected
   const { useState: _us, useEffect: _ue } = React;
   useEffect(()=>{
-    if (!budget?.id || !token || history.length===0) return;
+    if (!budget?.id || !token) return;
     setHistLoading(true);
-    fetchExpensesForRange(fromPeriod||oldest, toPeriod||newest)
-      .then(rows => { setHistExpenses(rows); setHistLoading(false); })
+    fetchExpensesForRange(fromPeriod||null, toPeriod||null)
+      .then(async rows => {
+        setHistExpenses(rows);
+        // Load unique user names
+        const uniqueIds = [...new Set((rows||[]).map(e=>e.added_by).filter(Boolean))];
+        if (uniqueIds.length > 0) {
+          try {
+            const profDb = await sb.from("profiles", token);
+            const map = {};
+            await Promise.all(uniqueIds.map(async uid => {
+              try {
+                const p = await profDb.select("id,name", `id=eq.${uid}`);
+                if (Array.isArray(p) && p[0]) map[uid] = p[0].name || "Unknown";
+              } catch(e) {}
+            }));
+            setProfileMap(map);
+          } catch(e) {}
+        }
+        setHistLoading(false);
+      })
       .catch(()=>setHistLoading(false));
-  }, [fromPeriod, toPeriod, budget?.id, oldest, newest]);
+  }, [fromPeriod, toPeriod, budget?.id]);
 
   // Filter/sort hist expenses
   const filteredExpenses = histExpenses
@@ -2518,15 +2562,18 @@ React.createElement("div",{style:{...S.card,marginBottom:16,padding:16}},
           filteredExpenses.map((exp,i)=>{
             const cc=CAT_COLOR[exp.category]||"#f0f0f5";
             const ec=exp.currency||"RON";
+            const addedByName = profileMap[exp.added_by];
             return React.createElement("div",{key:exp.id||i,style:{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<filteredExpenses.length-1?"1px solid rgba(255,255,255,0.05)":"none"}},
               React.createElement("div",{style:{width:34,height:34,borderRadius:10,background:`rgba(${rgb(cc)},0.12)`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}},
                 React.createElement(Icon,{d:exp.type==="recurring"?IC.pin:IC.receipt,size:15,stroke:cc})
               ),
               React.createElement("div",{style:{flex:1,minWidth:0}},
                 React.createElement("p",{style:{fontWeight:600,fontSize:13,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},exp.name),
-                React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center"}},
+                React.createElement("div",{style:{display:"flex",gap:5,alignItems:"center",flexWrap:"wrap"}},
                   React.createElement("span",{style:{fontSize:11,padding:"1px 6px",borderRadius:99,background:`rgba(${rgb(cc)},0.12)`,color:cc,fontWeight:600}},exp.category),
-                  React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},exp.expense_date)
+                  React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.25)"}},exp.expense_date),
+                  addedByName && React.createElement("span",{style:{fontSize:11,color:"rgba(255,255,255,0.3)"}},
+                    "· ",addedByName)
                 )
               ),
               React.createElement("p",{style:{fontWeight:800,fontSize:13,color:"#f0f0f5",flexShrink:0}},fmt(parseFloat(exp.amount),ec))
